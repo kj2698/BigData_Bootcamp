@@ -12,3 +12,38 @@ Only instances of immutable types can be added to a Python set.
 we cannot add list and dictionary and set into python set whereas tuples can be added.
 
 only immutable objects (strings, integers, floats, frozensets, tuples of immutables) are hashable.
+Video 1:
+https://realpython.com/lessons/immutable-vs-hashable/
+
+00:00 Immutable objects are a type of object that cannot be modified after they were created. Hashable objects, on the other hand, are a type of object that you can call hash() on.
+
+00:11 So if you go into the Python interpreter and type hash, open parenthesis, and then put your object in there, close , and hit Enter and it does not error, then that means that your object is hashable.
+
+00:23 All immutable objects are hashable, but not all hashable objects are immutable. That’s just a rule, so anytime you see some example immutable object, you know for a fact that it’s hashable, but there are some cases where there are hashable objects that you actually can mutate. Python sets can only include hashable objects.
+
+00:43 That means that they can include immutable objects because all immutable objects are hashable and they can include mutable objects that are hashable. So, some examples that you’ve probably seen of immutable objects are tuples, strings, integers, and Booleans.
+
+01:00 This is because these objects cannot be modified after they were created.
+
+01:05 And then hashable objects sort of encompasses all immutable objects. An example would be you could define a class and then define your own built-in .__hash__() method, and this would mean that your object is hashable.
+
+01:18 If you don’t know this syntax, that’s totally fine. You can also imagine if you can call hash() on your object and it doesn’t error, then it’s hashable. Lists and dictionaries are unhashable because we cannot call the hash() method on them. Let’s see some examples.
+
+01:35 Let’s look at strings. We can create a string like this, and we can see that strings are indeed immutable. Let’s try to actually mutate it and see that this will error.
+
+01:46 So if we try to add a character to the end or change the first character to another character, both of those will error. That’s because strings are immutable and do not actually have any methods that allow us to mutate them.
+
+01:59 The same goes for integers. We can create an integer, and we can’t add a number to an integer or add an integer to the end of itself and actually change what this 10 is.
+
+02:11 Once the 10 is created, we cannot change it. We can, however, reassign x—but that doesn’t actually change the 10.
+
+02:18 All that does is just change what x is bound to, and then the 10 just goes away. We can verify that strings and integers are both hashable by calling the hash() method on them. So hash(s) will not error, it’ll spit out a number. And this number just represents the hash of s and you can imagine hashing just changes the object into a number.
+
+02:40 And each time we hash it, we get that same value. hash(x) gives us the integer back. hash() on Booleans and tuples all don’t error. However, we saw that lists and dictionaries are unhashable, which means that calling hash() on them errors and says unhashable type: 'list'.
+
+03:01 The same goes for dictionaries, unhashable type: 'dict'.
+
+03:07 So now that you know what immutable and hashable mean, let’s look at how we can define sets.
+
+Video 2:
+https://realpython.com/lessons/defining-set-python/
