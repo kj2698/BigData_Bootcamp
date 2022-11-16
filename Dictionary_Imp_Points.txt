@@ -1,0 +1,31 @@
+Almost any type of value can be used as a dictionary key in Python. You can even use built-in objects like types and functions. However, there are a couple restrictions that dictionary keys must abide by.
+
+First, a given key can appear in a dictionary only once. Duplicate keys are not allowed. A dictionary maps each key to a corresponding value, so it doesn’t make sense to map a particular key more than once. If you specify a key a second time during the initial creation of a dictionary, then the second occurrence will override the first.
+
+Second, a dictionary key must be of a type that is immutable. For example, you can use an integer, float, string, or Boolean as a dictionary key. However, neither a list nor another dictionary can serve as a dictionary key, because lists and dictionaries are mutable. Values, on the other hand, can be any type and can be used more than once.
+
+We can use Tuple as dictionary keys.
+t1=(1,2)
+d1={}
+d1[t1]="hello"
+d1[0]="hi"
+print(d1)
+
+o/p: {(1, 2): 'hello', 0: 'hi'}
+
+Also, if we try to use boolean True/False then if we already have 1/0 as key in our dictionary then the values of 1/0 will be updated and we will not see True/False as keys.
+t1=(1,2)
+d1={}
+d1[t1]="hello"
+d1[0]="hi"
+print(d1)
+d1[True]='hey'
+#d1['True']='hii'
+print(d1)
+d1[False]='new value'
+print(d1)
+
+o/p: {(1, 2): 'hello', 0: 'hi'}
+     {(1, 2): 'hello', 0: 'hi', True: 'hey'}
+     {(1, 2): 'hello', 0: 'new value', True: 'hey'} # Notice value of Key 0 is changed bcoz of d1[False]='new value'
+
