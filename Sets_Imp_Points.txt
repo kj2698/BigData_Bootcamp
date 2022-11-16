@@ -1,0 +1,14 @@
+Sets are used to store multiple items in a single variable.
+A set is a collection which is unordered, unchangeable*, and unindexed.
+* Note: Set items are unchangeable, but you can remove items and add new items.
+Unordered means that the items in a set do not have a defined order.
+Set items can appear in a different order every time you use them, and cannot be referred to by index or key.
+Once a set is created, you cannot change its items, but you can remove items and add new items.
+
+However, there are two major pitfalls in Python sets: 
+
+The set doesn’t maintain elements in any particular order.
+Only instances of immutable types can be added to a Python set.
+we cannot add list and dictionary and set into python set whereas tuples can be added.
+
+only immutable objects (strings, integers, floats, frozensets, tuples of immutables) are hashable.
