@@ -49,4 +49,11 @@ Rose is red
 we will be looking at how to take integer input from users. To take integer input we will be using int() along with Python input()
 eg: num1 = int(input("Please Enter First Number: "))
 
+Q7. What is the default datatype of the value that has been taken as an input using input() function?
+Ans: String
+
+Q8. What is type casting?
+Ans: Converting the one data to other.
+
+
 
