@@ -1,0 +1,52 @@
+Q1. Why do we call Python as a general purpose and high-level programming language?
+Ans: Python is an object-oriented, high-level programming language. Object-oriented means this language is based around objects (such as data) rather than functions, and high-level means it's easy for humans to understand.
+
+Q2. Why is Python called a dynamically typed language?
+Python is a dynamically typed language. It doesn’t know about the type of the variable until the code is run. So declaration is of no use. What it does is, It stores 
+that value at some memory location and then binds that variable name to that memory container. And makes the contents of the container accessible through that 
+variable name. So the data type does not matter. As it will get to know the type of the value at run-time.
+
+Q3. List some pros and cons of Python programming language?
+Ans: 
+Pros
+*Python is easy to learn and read
+*Python enhances productivity
+*Python has a vast collection of libraries
+*Python is free, open-source, and has a vibrant community
+*Python is an interpreted language:
+High-level programming languages are known to require compilation to binary - Python does not.
+In the case of Python , the program is executed from the source code directly. So all you need to do is to ensure that the right libraries are linked to the program.
+Python's mode of operation is special. It converts the source code into bytecodes and these bytecodes are then translated into the native language before the program is executed.
+You do not have to compile programs here, which makes things simpler and faster for you.
+
+Cons:
+*Python has speed limitations: The program is not fast when executing codes, and this has a lot to do with the fact that Python is a dynamically typed and interpreted programming language.
+*Python can have runtime errors: While using Python , you can expect to see runtime errors because of the dynamical typing feature of this programming language.
+*Python consumes a lot of memory space
+
+Q4. In what all domains can we use Python?
+Ans: Data Science,Automation,Application Development,AI & Machine Learning,Audio/Video Applications (eg: spotify), Desktop GUI.
+
+Q5. What are variable and how can we declare them?
+Ans: Python Variable is containers which store values. Python is not “statically typed”. We do not need to declare variables before using them or declare their type. A variable is created the moment we first assign a value to it. A Python variable is a name given to a memory location. It is the basic unit of storage in a program.
+Rules for creating variables in Python:
+A variable name must start with a letter or the underscore character.
+A variable name cannot start with a number.
+A variable name can only contain alpha-numeric characters and underscores (A-z, 0-9, and _ ).
+Variable names are case-sensitive (name, Name and NAME are three different variables).
+The reserved words(keywords) cannot be used naming the variable.
+
+Q6. How can we take an input from the user in Python?
+Ans: Python input() function is used to take user input. By default, it returns the user input in form of a string.
+color = input("What color is rose?: ")
+print("Rose is", color)
+
+Output:
+
+What color is rose?: red
+Rose is red
+
+we will be looking at how to take integer input from users. To take integer input we will be using int() along with Python input()
+eg: num1 = int(input("Please Enter First Number: "))
+
+
