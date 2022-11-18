@@ -55,5 +55,57 @@ Ans: String
 Q8. What is type casting?
 Ans: Converting the one data to other.
 
+Q9. Can we take more than one input from the user using single input() function? If yes, how? If no, why?
+Ans: Python user can take multiple values or inputs in one line by two methods. 
+Using split() method
+Using List comprehension
 
+Syntax : 
+
+input().split(separator, maxsplit)
+x, y = input("Enter two values: ").split()
+print("Number of boys: ", x)
+print("Number of girls: ", y)
+
+Using List comprehension
+x, y = [int(x) for x in input("Enter two values: ").split()]
+print("First Number is: ", x)
+print("Second Number is: ", y)
+
+Q10. What are keywords?
+Keywords are some predefined and reserved words in python that have special meanings. Keywords are used to define the syntax of the coding. The keyword cannot be used as an identifier, function, and variable name. All the keywords in python are written in lower case except True and False.
+
+Q11. Can we use keywords as a variable? Support your answer with reason.
+Ans: No we cannot.
+
+Q14. What are operators in Python?
+Ans: OPERATORS: Are the special symbols. Eg- + , * , /, etc.
+     OPERAND: It is the value on which the operator is applied.
+     
+     PRECEDENCE:
+P – Parentheses
+E – Exponentiation
+M – Multiplication     (Multiplication and division have the same precedence)
+D – Division
+A – Addition     (Addition and subtraction have the same precedence)
+S – Subtraction
+
+Identity Operators
+is and is not are the identity operators both are used to check if two values are located on the same part of the memory. Two variables that are equal do not imply that they are identical. 
+
+is          True if the operands are identical 
+is not      True if the operands are not identical 
+
+Q15. What is difference between / and // operators?
+Ans: /	Division (float): divides the first operand by the second
+     //	Division (floor): divides the first operand by the second
+    
+Q16. Write a code that gives following as an output.
+```
+iNeuroniNeuroniNeuroniNeuron
+```
+Ans: print("INeuron"*4)
+
+Q18. What are boolean operator?
+Ans: https://realpython.com/python-and-operator/
 
