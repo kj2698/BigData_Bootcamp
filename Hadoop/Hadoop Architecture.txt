@@ -49,3 +49,10 @@ same machine but in a real deployment that is rarely the case.
 
 The existence of a single NameNode in a cluster greatly simplifies the architecture of the system. 
 The NameNode is the arbitrator and repository for all HDFS metadata. The system is designed in such a way that user data never flows through the NameNode.
+
+The File System Namespace
+HDFS supports a traditional hierarchical file organization. A user or an application can create directories and store files inside these directories. The file system namespace hierarchy is similar to most other existing file systems; one can create and remove files, move a file from one directory to another, or rename a file. HDFS supports  and . HDFS does not support hard links or soft links. However, the HDFS architecture does not preclude implementing these features.
+
+While HDFS follows , some paths and names (e.g. /.reserved and .snapshot ) are reserved. Features such as  and  use reserved paths.
+
+The NameNode maintains the file system namespace. Any change to the file system namespace or its properties is recorded by the NameNode. An application can specify the number of replicas of a file that should be maintained by HDFS. The number of copies of a file is called the replication factor of that file. This information is stored by the NameNode.
