@@ -1,0 +1,23 @@
+Hadoop 1.x
+Map reduce is the execution engine of Hadoop.
+
+Map Reduce Components
+1. Job Tracker
+2. Task Tracker
+
+Job tracker:
+Name Node and job tracker may or not reside on same node. The job tracker is hosted inside the master
+and it receives the job execution request from the client.
+Its main duties are to break down the recieve job that is big computations in small parts allocate
+the partial computations that is tasks to slave nodes monitoring the progress and report of task exe.
+from the slave.
+The unit of exec. is job.
+
+Task Tracker:
+task tracker is the map reduce component on the slave machine as there are multiple slave machines.
+many task trackers are available in a cluster its duty is to perform computation given by job tracker
+on the data available on the slave machine.
+the task tracker will communicate the progress and report the results on the job tracker.
+the master node contains the job tracker ans name node whereas all slaves contain the task tracker
+and data node.
+
