@@ -1,0 +1,30 @@
+Q) Difference between secondary name node and standby name node in Hadoop
+
+Secondary Namenode's whole purpose is to have a checkpoint in HDFS. Its just a helper node for namenode. That’s why it also known as checkpoint node.
+
+But, It cant replace namenode on namenode's failure.
+
+So, Namenode still is Single-Point-of-Failure.
+
+To overcome this issue; STANDBY-NAMENODE comes into picture.
+
+About Standby-Namenode Both active and standby Namenode use a shared directory and standby Namenode sync through that directory from time to time so there must 
+be no delay in activating it if the active Namenode goes down. But the main factor is about the block reports, Block reports are not written in edit-logs, 
+they are stored in local disk space. So syncing with a shared directory is not enough. To avoid this conflict, data-nodes has the addresses of both the name-nodes, 
+and they send the block reports to both of them but they only follow the block commands coming from the active Namenode.
+
+Secondary NameNode : It is one of the poorest named part of the hadoop ecosystem usually beginners get confused thinking of it as a backup.
+Secondary NameNode in hadoop is a specially dedicated node in HDFS cluster whose main function is to take checkpoints of the file system metadata present on namenode. 
+It is not a backup namenode. It just checkpoints namenode’s file system namespace. The Secondary NameNode is a helper to the primary NameNode but not replace 
+for primary namenode.
+
+Q) What does NameNode stores and where it stores
+NameNode records the metadata of all the files stored in the cluster, such as location of blocks stored, size of the files, permissions, hierarchy, etc. There are two files associated with the metadata:
+
+FsImage: Contains the complete state of the file system namespace since the start of the NameNode.
+EditLogs: It contains all the recent modifications made to the file system with respect to the most recent FsImage.
+If a file is deleted in HDFS, the NameNode will immediately record this in the EditLog.
+
+The Secondary NameNode is one which constantly reads all the file systems and metadata from the RAM of the NameNode and writes it into the hard disk or the file system. It is responsible for combining the EditLogs with FsImage from the NameNode. 
+
+Secondary NameNode downloads the EditLogs from the NameNode at regular intervals and applies to FsImage. The new FsImage is copied back to the NameNode, which is used whenever the NameNode is started the next time.
