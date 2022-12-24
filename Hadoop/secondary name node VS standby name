@@ -28,3 +28,16 @@ If a file is deleted in HDFS, the NameNode will immediately record this in the E
 The Secondary NameNode is one which constantly reads all the file systems and metadata from the RAM of the NameNode and writes it into the hard disk or the file system. It is responsible for combining the EditLogs with FsImage from the NameNode. 
 
 Secondary NameNode downloads the EditLogs from the NameNode at regular intervals and applies to FsImage. The new FsImage is copied back to the NameNode, which is used whenever the NameNode is started the next time.
+
+Q) What is difference between Hadoop Namenode HA and HDFS federation?
+Ans: The main difference between HDFS High Availability and HDFS Federation would be that the namenodes in Federation aren't related to each other.
+
+In HDFS federation, all the namenodes share a pool of metadata in which each namenode has it's own pool hence providing fault-tolerance i.e if one namenode in a federation fails, it doesn't affect the data of other namenodes.
+
+So, Federation = Multiple namenodes and no correlation.
+
+While in case of HDFS HA, there are two namenodes - Primary NN and Standby NN. Primary NN works hard all the time, everytime while Standby NN just sits there and chills and updates it's metadata with respect to the Primary Namenode once in a while which makes them related. When Primary NN gets tired of this usual sheet (i.e it fails), the Standby NameNode takes over with whatever most recent metadata it has.
+
+As for a HA Architecture, you need to have atleast two sepearte machines configured as Namenode, out of which only one should run in Active State.
+
+for more info: https://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-hdfs/HDFSHighAvailabilityWithNFS.html
