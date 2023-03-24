@@ -1,0 +1,60 @@
+-----------------------------------------
+The main difference between table constraint and column constraint is that table constraints are applied to a whole table, 
+while column constraints are applied to a single column in a table.
+
+Table constraints are used to enforce rules that apply to the entire table, such as primary key, foreign key, unique, and check constraints. 
+These constraints are applied to one or more columns in the table and ensure data integrity by enforcing rules that apply to the entire table.
+
+Column constraints, on the other hand, are applied to a single column in the table and restrict the values that can be inserted into that column. 
+Examples of column constraints include primary key, foreign key, unique, and check constraints. Column constraints ensure that the values in the column 
+meet certain criteria, such as uniqueness, referential integrity, or data type.
+
+In summary, while both table and column constraints are used to enforce data integrity in a database, the main difference between them is the scope
+of their application. Table constraints are applied to a whole table, while column constraints are applied to a single column in the table.
+
+--------------------------------------------
+Auto_Increment in mysql:
+In MySQL, AUTO_INCREMENT is a column attribute that can be used to automatically generate a unique numeric value for each row in a table. 
+When a column is defined as AUTO_INCREMENT, MySQL automatically assigns the next available integer value to that column when a new row is inserted into the table.
+
+Here's an example of how to define a column as AUTO_INCREMENT in a MySQL table:
+CREATE TABLE my_table (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(50),
+  age INT
+);
+
+In this example, the id column is defined as AUTO_INCREMENT and also set as the primary key of the table. 
+This means that each time a new row is inserted into my_table, MySQL will automatically generate a unique integer value for the id column.
+It's important to note that AUTO_INCREMENT columns must be defined as an integer data type (e.g. INT, BIGINT, etc.) and can only be used on one column per table. 
+also, AUTO_INCREMENT col must be a key.
+example:
+create table emp(
+
+    id int,
+    fname varchar(30) not NULL,
+    lname varchar(30),
+    age tinyint UNIQUE AUTO_INCREMENT
+);
+
+Now if I insert 2 Times a same record, age values gets incremented automatically.
+insert into emp(id,fname,lname) values(2,'amit','singh');
+insert into emp(id,fname,lname) values(2,'amit','singh');
+
+output:
+2,'amit','singh',1
+2,'amit','singh',2
+
+Additionally, the initial value of AUTO_INCREMENT can be set using the AUTO_INCREMENT = value option when creating the table, 
+or by using the ALTER TABLE statement to modify the table's options.
+Here's an example of how to set the initial value of AUTO_INCREMENT to 100:
+CREATE TABLE my_table (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(50),
+  age INT
+) AUTO_INCREMENT = 100;
+
+---------------------------------------------
+checkout the website:
+https://www.mysqltutorial.org/mysql-basics/
+
