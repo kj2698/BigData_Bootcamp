@@ -1,0 +1,48 @@
+The version 2 release made significant leaps compared to version 1 of Hadoop. It introduced YARN, a sophisticated general-purpose
+resource manager and job scheduling component. HDFS high availability, HDFS federations, and HDFS snapshots were some other prominent features introduced 
+in version 2 releases.
+
+The core idea behind the MapReduce model was to provide parallelism, fault tolerance, and data locality features. Data locality means a program is 
+executed where data is stored instead of bringing the data to the program.
+
+NameNodes and DataNodes have a specific role in managing overall clusters. NameNodes are responsible for maintaining metadata information.
+MapReduce engines have a job tracker and task tracker whose scalability is limited to 40,000 nodes because the overall work of scheduling and 
+tracking is handled by only the job tracker. YARN was introduced in Hadoop version 2 to overcome scalability issues and resource management jobs. 
+It gave Hadoop a new lease of life and Hadoop became a more robust, faster, and more scalable system.
+
+---------------------------------------------------------
+Overview of Hadoop 3 and its features
+The first alpha release of Hadoop version 3.0.0 was on 30 August 2016. It was called version 3.0.0-alpha1. This was the first alpha release in a series of planned
+alphas and betas that ultimately led to 3.0.0 GA. The intention behind this alpha release was to quickly gather and act on feedback from downstream users.
+
+With any such releases, there are some key drivers that lead to its birth. These key drivers create benefits that will ultimately help in the better functioning 
+of Hadoop-augmented enterprise applications. Before we discuss the features of Hadoop 3, you should understand these driving factors. Some driving factors behind 
+the release of Hadoop 3 are as follows:
+
+A lot of bug fixes and performance improvements: Hadoop has a growing open source community of developers regularly adding major/minor changes or improvements to 
+the Hadoop trunk repository. These changes were growing day by day and they couldn't be accommodated in minor version releases of 2.x. They had to be accommodated 
+with a major version release. Hence, it was decided to release the majority of these changes committed to the trunk repository with Hadoop 3.
+Overhead due to data replication factor: As you may be aware, HDFS has a default replication factor of 3. This helps make things more fault-tolerant with better 
+data locality and better load balancing of jobs among DataNodes. However, it comes with an overhead cost of around 200%. For non-frequently accessed datasets 
+that have low I/O activities, these replicated blocks are never accessed in the course of normal operations. On the other hand, they consume the same number of 
+resources as other main resources. To mitigate this overhead with non-frequently accessed data, Hadoop 3 introduced a major feature, called erasure coding. 
+This stores data durably while saving space significantly.
+Improving existing YARN Timeline services: YARN Timeline service version 1 has limitations that impact reliability, performance, and scalability. For example, 
+it uses local-disk-based LevelDB storage that cannot scale to a high number of requests. Moreover, the Timeline server is a single point of failure. To mitigate 
+such drawbacks, YARN Timeline server has been re-architected with the Hadoop 3 release.
+Optimizing map output collector: It is a well-known fact that native code (written correctly) is faster to execute. In lieu of that, some optimization is done 
+in Hadoop 3 that will speed up mapper tasks by approximately two to three times. The native implementation of map output collector has been added, which will
+be used in the Java-based MapReduce framework using the Java Native Interface (JNI). This is particularly useful for shuffle-intensive operations.
+The need for a higher availability factor of NameNode: Hadoop is a fault-tolerant platform with support for handling multiple data node failures. In the case
+of NameNodes versions, prior to Hadoop version 3 support two NameNodes, Active and Standby. While it is a highly available solution, in the case of the failure 
+of an active (or standby) NameNode, it will go back to a non-HA mode. This is not very accommodative of a high number of failures. In Hadoop 3, support for more
+than one standby NameNode has been introduced.
+Dependency on Linux ephemeral port range: Linux ephemeral ports are short-lived ports created by the OS (operating system) when a process requests any available port.
+The OS assigns the port number from a predefined range. It then releases the port after the related connection terminates. With version 2 and earlier, many Hadoop 
+services' default ports were in the Linux ephemeral port range. This means starting these services sometimes failed to bind to the port due to conflicts with 
+other processes. In Hadoop 3, these default ports are moved out of the ephemeral port range.
+Disk-level data skew: There are multiple disks (or drives) managed by DataNodes. Sometimes, adding or replacing disks leads to significant data skew within 
+a DataNode. To rebalance data among disks within a DataNode, Hadoop 3 has introduced a CLI utility called hdfs diskbalancer.
+Well! Hopefully, by now, you have a clear understanding of why certain features were introduced in Hadoop 3 and what kinds of benefits are derived from them. 
+
+-------------------------------------------------
