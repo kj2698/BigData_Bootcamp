@@ -111,3 +111,54 @@ written, created, and closed for the first time. You can only add content at the
 coherency model keeps the HDFS design simple, scalable, and less buggy. 
 ---------------------------------------------------
 
+HDFS logical architecture
+We'll now gain an understanding of some of the design decisions of HDFS and how they mitigate some of the bottlenecks associated 
+with a large dataset's storage and processing in a distributed manner. It's time to take a deep dive into the HDFS architecture. 
+The following diagram represents the logical components of HDFS:
+
+
+
+
+For simplicity's sake, you can divide the architecture into two groups. One group can be called the data group. 
+It consists of processes/components that are related to file storage. The other group can be called the management group. 
+It consists of processes/components that are used to manage data operations such as read, write, truncate, and delete.
+
+So, the data group is about data blocks, replication, checkpoints, and file metadata. The management group is about NameNodes, 
+DataNodes, JournalNodes, and Zookeepers. We will first take at the management group's components and then we will talk about the data group's components:
+
+NameNode: HDFS is a master-slave architecture. The NameNode plays the role of a master in the HDFS architecture. It is the regulator that controls 
+all operations on the data and stores all relevant metadata about data that's stored in HDFS. All data operations will first go through a NameNode and 
+then to other relevant Hadoop components. The NameNode manages the File System namespace. It stores the File System tree and metadata of files and 
+directories. All of this information is stored on the local disk in three types of files, namely File System namespace, image (fsimage) files, and edit logs files.
+
+The fsimage file stores the state of the File System at a point in time. The edit logs files contains a list of all changes (creation, modification, 
+truncation, or deletion) that are made to each HDFS file after the last fsimage file was created. A new fsimage file is created after collaborating 
+the content of the most recent fsimage files with the latest edit logs. This process of merging fsimage files with edit logs is called checkpointing.
+ It is system-triggered and is managed by system policies. NameNode also maintains a mapping of all data blocks to DataNode.
+ 
+DataNode: DataNodes plays the role of slaves in the HDFS architecture. They perform data block operations (creation, modification, or deletion)
+ based on instructions that are received from NameNodes or HDFS clients. They host data processing jobs such as MapReduce. They report back 
+ block information to NameNodes. DataNodes also communicate between each other in the case of data replication.
+ 
+JournalNode: With NameNode high availability, there was a need to manage edit logs and HDFS metadata between a active and standby NameNodes. 
+JournalNodes were introduced to efficiently share edit logs and metadata between two NameNodes. JournalNodes exercise concurrency write locks 
+to ensure that edit logs are written by one active NameNode at a time. This level of concurrency control is required to avoid the state of a 
+NameNode from being managed by two different services that act as failovers of one another at the same time. This type of scenario, where edit
+ logs are managed by two services at the same time, is called HDFS split brain scenario, and it can result in data loss or inconsistent state. 
+ JournalNodes avoid such scenarios by allowing only one NameNode to be writing to edit logs at a time.
+ 
+Zookeeper failover controllers: With the introduction of high availability (HA) in NameNodes, automatic failover was introduced as well. 
+HA without automatic failover would have manual intervention to bring NameNode services back up in the event of failure. This is not ideal. 
+Hence, the Hadoop community has introduced two components: Zookeeper Quorum and Zookeeper Failover controller, also known as ZKFailoverController (ZKFC). 
+Zookeeper maintains data about NameNode health and connectivity. It monitors clients and notifies other clients in the event of failure. 
+Zookeeper maintains an active persistent session with each of the NameNodes, and this session is renewed by each of them upon expiry. 
+In the event of a failure or crash, the expired session is not renewed by the failed NameNode. This is when Zookeeper informs other 
+standby NameNodes to initiate the failover process. Every NameNode server has a Zookeeper client installed on it. This Zookeeper 
+client is called ZKFC. Its prime responsibilities are monitoring the health of the NameNode processes, managing sessions with Zookeeper servers, 
+and acquiring write lock concurrency in the case of its local NameNode being active. ZKFC monitors NameNode health with periodic health check pings. 
+If a NameNode responds to those pings in a timely manner, then ZKFC considers that NameNode to be healthy. If not, then ZKFC considers it to 
+be unhealthy and accordingly notifies the Zookeeper servers about it. In the case of the local NameNode being healthy and active, ZKFC opens 
+a session in Zookeeper and creates a lock znode on the Zookeeper servers. This znode is ephemeral in nature and will be deleted
+ automatically when the session expires.
+ --------------------------------------------------
+ 
