@@ -77,3 +77,37 @@ master node. When the active master node fails, the standby master node takes ov
 once to make high availability more robust and efficient.
 -------------------------------------------------
 
+Deep dive into the HDFS architecture
+As a big data practitioner or enthusiast, you must have read or heard about the HDFS architecture. The goal of this section is to explore the 
+architecture in depth, including the main and essential supporting components. By the end of this section, you will have a deep knowledge of 
+the HDFS architecture, along with the intra-process communication of architecture components. But first, let's start by establishing definition 
+of HDFS (Hadoop Distributed File System). HDFS is the storage system of the Hadoop platform, which is distributed, fault-tolerant, 
+and immutable in nature. HDFS is specifically developed for large datasets (too large to fit in cheaper commodity machines). 
+Since HDFS is designed for large datasets on commodity hardware, it purposely mitigates some of the bottlenecks associated with large datasets.
+
+We will understand some of these bottlenecks and how HDFS mitigates them here:
+
+With large datasets comes the problem of slow processing they are run on only one computer. The Hadoop platform consists of two 
+logical components, distributed storage and distributed processing. HDFS provides distributed storage. MapReduce and other YARN-compatible 
+frameworks provide distributed processing capabilities. To mitigate this, Hadoop offers distributed data processing, which has several 
+systems processing a chunk of data simultaneously. 
+
+With distributed processing of large datasets, one of the challenges is to mitigate large data movements over the network. HDFS makes
+ provisions for applications or code to move the computation closer to where the data is located. This ensures less utilization of cluster 
+ bandwidth. Moreover, data in HDFS is replicated by default and each replica is hosted by a different node. This replication helps in moving
+ computation closer to the data. For example, if the node hosting one of the replicas of the HDFS block is busy and does not have any open 
+ slots for running jobs, then the computation would be moved to another node hosting some other HDFS block replica.
+ 
+With large datasets, the cost of failure is greater. So, if a complex process on large datasets (running over a longer duration) fails, 
+then rerunning that complex data processing job is significant in terms of resource costs and time consumption. Moreover, one of the side 
+effects of distributed processing is that the chances of failure are high due to high network communication and coordination across a large 
+number of machines. Lastly, it runs on commodity hardware, where failure is unavoidable. To mitigate such risks, HDFS is built with an automated 
+mechanism to detect and recover from faults.
+
+HDFS is designed to be a File System that is used for multiple access by end users and processes in a distributed cluster. In the case of 
+multiple random access, having provisions for modifying files at arbitrary positions is error-prone and difficult to manage. To mitigate this 
+risk, HDFS is designed to support a simple coherency model where the file is not allowed to be modified at arbitrary points once it has been 
+written, created, and closed for the first time. You can only add content at the end of a file or truncate it completely. This simple 
+coherency model keeps the HDFS design simple, scalable, and less buggy. 
+---------------------------------------------------
+
