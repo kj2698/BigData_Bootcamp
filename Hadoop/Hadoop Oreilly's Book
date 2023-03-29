@@ -46,3 +46,34 @@ a DataNode. To rebalance data among disks within a DataNode, Hadoop 3 has introd
 Well! Hopefully, by now, you have a clear understanding of why certain features were introduced in Hadoop 3 and what kinds of benefits are derived from them. 
 
 -------------------------------------------------
+
+Defining HDFS
+HDFS is designed to run on a cluster of commodity hardware. It is a fault-tolerant, scalable File System that handles the failure of nodes without
+data and can scale up horizontally to any number of nodes. The initial goal of HDFS was to serve large data files with high read and write performance.
+
+The following are a few essential features of HDFS:
+
+Fault tolerance: Downtime due to machine failure or data loss could result in a huge loss to a company; therefore, the companies want a highly available 
+fault-tolerant system. HDFS is designed to handle failures and ensures data availability with corrective and preventive actions.
+Files stored in HDFS are split into small chunks and each chunk is referred to as a block. Each block is either 64 MB or 128 MB, depending on the configuration. 
+Blocks are replicated across clusters based on the replication factor. This means that if the replication factor is three, then the block will be replicated to
+three machines. This assures that, if a machine holding one block fails, the data can be served from another machine.
+
+Streaming data access: HDFS works on a write once read many principle. Data within a file can be accessed by an HDFS client. Data is served in the form of streams, 
+which means HDFS enables streaming access to large data files where data is transferred as a continuous stream. HDFS does not wait for the entire file to be 
+read before sending data to the client; instead, it sends data as soon as it reads it. The client can immediately process the received stream, which makes 
+data processing efficient.
+
+Scalability: HDFS is a highly scalable File System that is designed to store a large number of big files and allows you to add any number of machines to 
+increase its storage capability. Storing a huge number of small files is generally not recommended; the size of the file should be equal to or greater than 
+the block size. Small files consume more RAM space on master nodes, which may decrease the performance of HDFS operations.
+
+Simplicity: HDFS is easy to set up and manage. It is written in Java. It provides easy command-line interface tools that are very much similar to Linux commands. 
+Later in this chapter, we will see how easy it is to operate HDFS via a command-line utility. 
+
+High availability: HDFS is a highly available distributed File System. Every read and write request goes to a master node, and a master node can be a 
+single point of failure. Hadoop offers the high availability feature, which means a read and write request will not be affected by the failure of the active 
+master node. When the active master node fails, the standby master node takes over. In Hadoop version 3, we can have more than two master nodes running at 
+once to make high availability more robust and efficient.
+-------------------------------------------------
+
