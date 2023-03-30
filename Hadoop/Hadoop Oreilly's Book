@@ -179,3 +179,26 @@ The other benefit is that it provides better replication strategy and failover. 
 from some other DataNode.
 -------------------------------------
 
+Replication
+HDFS replication is critical for reliability, scalability, and performance. By default, HDFS has a replication factor of three. Therefore, Hadoop creators
+have given careful thought on where each data block replica should be placed. It is all policy-driven. The current implementation follows the rack-aware 
+replica management policy. Before we look at that in detail, we should first go through some of the facts about server racks. Any communication between 
+two racks goes through switches, and the available network bandwidth between two racks is generally less than the bandwidth between machines on the same rack. 
+Large Hadoop clusters spread across multiple racks. Hadoop tries to place replicas onto different racks. This prevents data loss in the case of an entire 
+rack unit failing and utilizes multiple available rack bandwidth for reading data.
+However, this increases write latency as data needs to be transferred to multiple racks. If the replication factor is three, then HDFS would put one replica 
+on the local machine where the writer is present, otherwise it would put on a random DataNode. Another replica would be placed on the DataNode on a different
+remote rack, and the last replica would be placed on another DataNode in the same remote rack. The HDFS replication policy makes an assumption that rack 
+failures are less probable than node failures. A block is only placed in two different racks, not three, which reduces the probability of network bandwidth 
+being used. The current replication policy does not equally distribute files across racks—if the replication factor is three, then two replicas will 
+be on the same rack and the third one will be on another rack. In bigger clusters, we may have more replication factors. In such cases, two thirds of 
+the replicas will be placed on one rack, one thirds of the replicas will be placed on another block, and the rest of the replicas will be equally 
+distributed between the remaining racks.
+
+The maximum number of replicas that we can have on HDFS is equal to the number of DataNodes because a DataNode cannot keep multiple copies of the same block. 
+HDFS always tries for direct read requests to the replica that's closest to the client. If the reader node is under the same rack where the replica is, 
+then it is assigned for reading the block. If the replication factor is more than the default replication factor, which is three, then the fourth 
+and following replicas are placed randomly by sticking to the per rack replica limit. This can be calculated using the following formula:
+
+(number_of_replicas-1)/number_of_racks+2
+-----------------------------------------------
