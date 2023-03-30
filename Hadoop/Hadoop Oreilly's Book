@@ -202,3 +202,52 @@ and following replicas are placed randomly by sticking to the per rack replica l
 
 (number_of_replicas-1)/number_of_racks+2
 -----------------------------------------------
+
+HDFS communication architecture
+One of the important aspects of understanding HDFS is taking a look at how different components interact with each other programmatically and 
+which type of network protocols or method invocations they use. All communication between HDFS components happens over the TCP/IP protocol.
+Different protocol wrappers are defined for different types of communication. The following diagram represents such protocol wrappers, which we 
+will look into in this section:
+
+
+
+The preceding diagram can be explained as follows:
+
+Client Protocol: This is a communication protocol that's defined for communication between the HDFS Client and the Namenode server. It is
+a remote procedure call (RPC) that communicates with NameNode on a defined port using a TCP protocol. All user code and client-side libraries 
+that need to interact with Namenode use this protocol. Some of the important methods in this protocol are as follows:
+create: Creates a new empty file in the HDFS namespace
+append: Appends to the end of file
+setReplication: Sets replication of the file
+addBlock: Writes additional data blocks to a file and assigns DataNodes for replication
+There are multiple methods that are supported by the client protocol. All of these are with respect to client interaction with NameNode. 
+We suggest you go over the Hadoop source code on GitHub to understand client and NameNode communication in more detail. This is the location 
+of ClientProtocol.java in the Hadoop source code: hadoop-hdfs-project/hadoop-hdfs-client/src/main/java/org/apache/hadoop/hdfs/protocol/ClientProtocol.java.
+Data Transfer Protocol: The HDFS Client, after receiving metadata information from Namenode, establishes communication with Datanode to read 
+and write data. This communication between the client and the Datanode is defined by the Data Transfer Protocol. Since this type of communication
+does most of the data heavy lifting in terms of high volume read and writes, it is defined as a streaming protocol and is unlike the RPC protocol 
+we defined earlier. Moreover, for efficiency purposes, the client buffers data up to a certain size of HDFS data blocks ( 64 MB by default) and 
+then writes one complete block to the respective DataNodes. This protocol is mostly defined around data blocks. Some of the important methods 
+that are included in this protocol are as follows:
+readBlock: Reads a data block from a DataNode.
+writeBlock: Writes a data block to a DataNode.
+transferBlock: Transfers a data block from one DataNode to another.
+blockChecksum: Gets the checksum value of a data block. This can be an MD5 or a CRC32 value.
+The data transfer protocol is an important protocol that defines communication (read/write) between client and data nodes. Additional details 
+about the methods it supports can be found in the Hadoop source code on GitHub. The following is the link for 
+the same is: https://github.com/lpcclown/hadoop_enhancement/tree/master/hadoop-hdfs-project/hadoop-hdfs-client/src/main/java/org/apache/hadoop/hdfs/protocol/datatransfer.
+
+Data Node Protocol: This is another important protocol that you should understand in detail. This protocol defines communication between 
+Namenode and DataNode. The Data Node Protocol (DNP) is mostly used by Datanode to provide its operation, health, and storage information to Namenode. 
+One of the important aspects of this protocol is that it is a one-way protocol. This means that all requests are always initiated by DataNode.
+NameNodes only respond to requests that are initiated by DataNodes. Unlike the previous protocol, this is a RPC protocol that's defined over TCP. 
+The following are some of the important methods that are included in this protocol:
+registerDatanode: This registers new or rebooted data nodes to NameNode.
+sendHeartbeat: This tells NameNode that the DataNode is alive and working properly. This method is not only important from the point of view of
+knowing which DataNode is alive, but it also gives NameNode a chance to respond back to DataNodes with a set of commands that it wants them to execute.
+For example, at times, NameNode wants to invalidate some of the blocks stored in data nodes. In that case, in response to the sendHeartbeat() method,
+NameNode sends an invalidate block request to the DataNode. 
+blockReport: This method is used by DataNode to send all of its locally stored block-related information to NameNode. In response to this, 
+NameNode sends DataNodes blocks that are obsolete and should be deleted.
+----------------------------------------
+
