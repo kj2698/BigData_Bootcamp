@@ -162,3 +162,20 @@ a session in Zookeeper and creates a lock znode on the Zookeeper servers. This z
  automatically when the session expires.
  --------------------------------------------------
  
+ Blocks
+Blocks define the minimum amount of data that HDFS can read and write at a time. HDFS, when storing large files, divides them into sets of individual 
+blocks and stores each of these blocks on different data nodes in a Hadoop cluster. All files are divided into data blocks and then stored in HDFS. 
+The default value of a HDFS block size is either 64 MB or 128 MB. This is large compared to Unix-level File System blocks. Having a large HDFS data 
+block size is beneficial in the case of storing and processing large volumes of data in Hadoop. One of the reasons for this is to efficiently manage
+the metadata associated with each data block. If the size of the data blocks are too small, then more metadata will be stored in NameNodes, causing 
+its RAM to be filled up quickly. This will also result in more remote procedural calls (RPCs) to NameNode ports, which may result in resource contention.
+
+The other reason is that large data blocks would result in higher Hadoop throughput. With an appropriate data block size, you can strike a balance 
+between how many data nodes would be running parallel processes to perform operations on a given dataset and how much data can be processed by an 
+individual process given the amount of resources allocated to it. Larger data blocks also result in less time being spent in disk-seeking operations
+or finding out the start of the data block. In addition to the advantages of having a large HDFS block size, the concept of HDFS block abstraction 
+have other advantages in Hadoop operations. One such benefit is that you can store files larger than the size of a disk of an individual machine.
+The other benefit is that it provides better replication strategy and failover. Corrupted disk blocks can be easily replaced by replicated blocks
+from some other DataNode.
+-------------------------------------
+
