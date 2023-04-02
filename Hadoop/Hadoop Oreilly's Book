@@ -251,3 +251,23 @@ blockReport: This method is used by DataNode to send all of its locally stored b
 NameNode sends DataNodes blocks that are obsolete and should be deleted.
 ----------------------------------------
 
+NameNode internals
+HDFS is a distributed File System for storing and managing large datasets. It divides large datasets into small data chunks where each data chunk is
+stored on different nodes that are part of the Hadoop cluster. However, HDFS hides these underlying complexities of dividing data into smaller 
+chunks and copying that data to different nodes behind abstract file operation APIs. For HDFS users, these file operation APIs are just 
+read/write/create/delete operations. All a HDFS user needs to know about is the Hadoop namespace and file URIs. But in reality, lots of steps 
+are performed before those operations are completed. One of the key HDFS components in achieving all of these activities is NameNode. NameNode 
+in Hadoop is a central component that regulates any operations on HDFS using file metadata that's stored in it. In other words, it manages HDFS
+file namespaces. NameNode performs the following functions:
+
+It maintains the metadata of files and directories stored in HDFS. Metadata mostly consists of file creation/modification timestamps, 
+access control lists, block or replica storage information, and files' current state.
+It regulates any file operations in terms of access control lists stored in files or directories, and which blocks and replicas will be
+handled by which DataNode. It also denies an operation if a user is not allowed to perform that operation.
+It gives the client information about data blocks and which data node will serve the read/write request.
+It also issues commands to DataNodes such as delete corrupted data blocks and also maintains a list of healthy DataNodes. 
+NameNodes maintains a data structure called INodes in memory. INodes have all the information regarding files and directories. 
+All of these INodes constitute a tree-like structure that is maintained by the Namenodes. INodes contain information such as file or
+directory name, username, group name, permissions, authorization ACLs, modification time, access time, and disk space quotas. 
+---------------------------------
+
