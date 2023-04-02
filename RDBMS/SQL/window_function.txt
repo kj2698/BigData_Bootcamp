@@ -1,1 +1,19 @@
 https://dev.mysql.com/doc/refman/8.0/en/window-functions-usage.html
+-------------------------------
+Summary of IMP Points to remember:
+
+Each window operation in the query is signified by inclusion of an OVER clause that specifies how to partition query rows into groups for processing by the window function:
+
+The first OVER clause is empty, which treats the entire set of query rows as a single partition. The window function thus produces a global sum, but does so for each row.
+
+The second OVER clause partitions rows by country, producing a sum per partition (per country). The function produces this sum for each partition row.
+
+Window functions are permitted only in the select list and ORDER BY clause. Query result rows are determined from the FROM clause, after WHERE, GROUP BY, and HAVING processing, and windowing execution occurs before ORDER BY, LIMIT, and SELECT DISTINCT.
+
+If OVER() is empty, the window consists of all query rows and the window function computes a result using all rows. Otherwise, the clauses present within the parentheses determine which query rows are used to compute the function result and how they are partitioned and ordered
+
+Standard SQL requires PARTITION BY to be followed by column names only. A MySQL extension is to permit expressions, not just column names. For example, if a table contains a TIMESTAMP column named ts, standard SQL permits PARTITION BY ts but not PARTITION BY HOUR(ts), whereas MySQL permits both.
+
+Each ORDER BY expression optionally can be followed by ASC or DESC to indicate sort direction. The default is ASC if no direction is specified. NULL values sort first for ascending sorts, last for descending sorts.
+
+An ORDER BY in a window definition applies within individual partitions. To sort the result set as a whole, include an ORDER BY at the query top level.
