@@ -323,3 +323,33 @@ another DataNode. DataNodes also send block reports to the NameNode at regular i
 location and other details of each block. 
 
 -----------------------------------
+
+Quorum Journal Manager (QJM)
+NameNode used to be a single point of failure before the release of Hadoop version 2. In Hadoop 1, each cluster consisted of a single NameNode. 
+If this NameNode failed, then the entire cluster would be unavailable. So, until and unless the NameNode service restarted, no one could use the
+Hadoop cluster. In Hadoop 2, the high availability feature was introduced. It has two NameNodes, one of the NameNodes is in active state while
+the other NameNode is in standby state. The active NameNode serves the client requests while the standby NameNode maintains synchronization of 
+its state to take over as the active NameNode if the current active NameNode fails. 
+
+There is a Quorum Journal Manager (QJM) runs in each NameNode. The QJM is responsible for communicating with JournalNodes using RPC; for example, 
+sending namespace modifications, that is, edits to JournalNodes, and so on. A JournalNode daemon can run on N machines where N is configurable.
+A QJM writes edits to the local disk of a JournalNode running on N machines in the cluster. These JournalNodes are shared with NameNode machines 
+and any modifications performed by the active NameNode is logged into edit files on these shared nodes. These files are then read by the standby
+NameNode, which applies these modification onto its own fsimage to keep its state in sync with the active NameNode. In case the active NameNode 
+fails, the standby NameNode will apply all the changes from the edit logs before changing its state to active and thus making sure that the current 
+namespace is fully synchronized. The QJM performs the following operations when it writes to the JournalNode:
+
+The writer makes sure that no other writers are writing to the edit logs. This is to guarantee that even if the two NameNodes are active at a 
+same time, only one will be allowed to make namespace changes to the edit logs.
+It is possible that the writer has not logged namespace modifications to all the JournalNodes or that some JournalNodes have not completed the 
+logging. The QJM makes sure that all the JournalNodes are in sync based on file length.
+When one of the preceding two things are verified, the OJM can start a new log segment to write to edit logs.
+The writer sends current batch edits to all the JournalNodes in the cluster and waits for an acknowledgement based on the quorum of all the 
+JournalNodes before considering the write a success. Those JournalNodes who failed to respond to the write request will be marked as OutOfSync 
+and will not be used for the current batch of the edit segment.
+A QJM sends a RPC request to JournalNodes to finalize log segmentation. After receiving confirmation from quorum of JournalNodes, QJM can
+begin the next log segment. 
+The DataNode sends block information and a heartbeat to both the DataNodes to make sure that both have up to date information about the block. 
+In Hadoop 3, we can have more than two NameNodes, and the DataNode will send information to all of those NameNodes. In this way, QJM helps in 
+achieving high availability.
+--------------------------------------
