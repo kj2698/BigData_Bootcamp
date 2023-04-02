@@ -271,3 +271,22 @@ All of these INodes constitute a tree-like structure that is maintained by the N
 directory name, username, group name, permissions, authorization ACLs, modification time, access time, and disk space quotas. 
 ---------------------------------
 
+Data locality and rack awareness
+One of the design goals of Hadoop is to move computation to data rather than moving data to computation. This goal was set because Hadoop was 
+created for processing high-volume datasets. Moving large datasets can decrease performance. For example, if Hadoop is running MapReduce on a 
+large volume of data, it would first try to run mapper tasks on the DataNodes that have the relevant input data (Data Local). This is generally
+referred to as data locality optimization in Hadoop. One of the key points to remember here is that reduce tasks do not use data locality, because a
+single reduce task can use output from multiple mappers. To achieve data locality, Hadoop uses all three replications (Data Local, Rack Local, and Off rack).
+But sometimes, in a very busy cluster, if there are no task slots available on the nodes hosting input data replicas, job schedulers would first try to 
+run jobs on the node that have free slots on the same rack (Rack Local). If Hadoop does not find any free slots on the same rack, then tasks are run on 
+different racks. However, this will result in data transfer (Off rack). The following diagram shows different types of data locality in Hadoop:
+
+
+
+Hadoop understands that any communication between nodes within a rack would be of a lower latency as more network bandwidth is
+available within a rack than going outside the rack. Therefore, all components in Hadoop are rack-aware. Rack awareness basically 
+means that Hadoop and its components have complete knowledge of the Cluster topology. By cluster topology, we mean how data nodes 
+are placed onto different racks that are part of the Hadoop cluster. Hadoop uses this information to ensure data availability in the
+case of failures and for better the performance of Hadoop jobs.
+-----------------------------------
+
