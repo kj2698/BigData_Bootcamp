@@ -290,3 +290,36 @@ are placed onto different racks that are part of the Hadoop cluster. Hadoop uses
 case of failures and for better the performance of Hadoop jobs.
 -----------------------------------
 
+DataNode internals
+HDFS is built based on a master/worker architecture where NameNode is the master and DataNodes are the workers. DataNode follows NameNode's
+instructions, such as block creation, replication, and deletion. Read and write requests from clients are served by DataNodes. All the files 
+in HDFS are split into blocks and actual data is then stored in the DataNodes. Each DataNode periodically sends its heartbeat to the NameNode 
+to acknowledge that it is still alive and functioning properly. DataNodes also send block reports to the NameNodes. 
+
+When the DataNodes receives a new block request, it sends a block received acknowledgement to the NameNode. The Datanode.Java class contains the 
+majority of the implementation of Datanode's functionality. This class has the implementation code for communicating with the following:
+
+Client code for read and write operations
+DataNode for replication operations
+NameNode for block report and heartbeats
+The DataNode follows instructions from the NameNode and may delete block replicas or copy replicas to some other DataNodes as per instruction. 
+The NameNode does not connect to a DataNode directly for instruction; instead, a client takes metadata information from the NameNode and then 
+instructs the DataNode to read/write or copy block replica. An open server socket connection is maintained by the DataNode for client or other 
+DataNodes to read and write data. Server information such as host and port number are sent to the NameNode, and the latter sends this information 
+to the client when it receives a request for read and write operations.
+
+The NameNode must know which DataNode is functioning properly and thus each DataNode sends a heartbeat to the NameNode at regular intervals. 
+The interval is 3 seconds by default. Similarly, block information is also sent to a NameNode by DataNodes at a regular configured interval. 
+In short, DataNodes are involved in the following operations:
+
+Heartbeat: All the DataNodes send a regular heartbeat to the NameNode so that the NameNode knows that the DataNodes are working properly and 
+can satisfy read/write/delete requests from clients. If the DataNode does not send a heartbeat for a configured period of time, NameNode marks 
+he DataNode as dead and does not use that DataNode for any read and write requests. 
+Read/write: A DataNode opens a socket connection for clients to read and write data blocks to its storage. The client sends a request to the
+NameNode and NameNode replies with a list of DataNodes that can be used for read and write operations. The client then directly uses DataNodes 
+to read or write data. 
+Replication and block report: During write or replica balance operations, one DataNode may receive a write request for data block write from 
+another DataNode. DataNodes also send block reports to the NameNode at regular intervals. This keeps the NameNode up to date regarding the 
+location and other details of each block. 
+
+-----------------------------------
