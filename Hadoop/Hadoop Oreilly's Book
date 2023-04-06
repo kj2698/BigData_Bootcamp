@@ -365,3 +365,45 @@ The behavior of additional standby NameNodes will still be the same as any other
 HTTP addresses. They will use QJM to get the latest edit logs and update their fsimage.
 --------------------------------------------
 
+Data management
+We discussed HDFS blocks and replication in the previous sections. NameNode stores all metadata information and is a single point of failure, which means
+that no one can use HDFS if NameNode is down. This metadata information is important and can be used to restart NameNode on other machines. 
+Thus, it is important to take multiple backup copies of a metadata file so that, even if metadata is lost from the primary NameNode, the backup 
+copy can be used to restart the NameNode on the same machine or another machine. In this section, we will discuss NameNode metadata files such
+as fsimage and edit log. We will discuss data integrity further by using checksum and taking snapshots of the directory to avoid data loss and modification. 
+------------------------------------
+Metadata management
+HDFS stores a large amount of structured and unstructured data in various formats. While the data is continuously growing to terabytes and petabytes, 
+and your data is being used by Hadoop, you are likely to come across questions, such as what data is available on HDFS, how it is being used, and what
+type of users are using the data, the data creation timeline, and so on. Well-maintained metadata information can effectively answer these questions and 
+thus improve the usability of the data store over HDFS.
+
+NameNode keeps the complete fsimage in memory so that all the metadata information requests can be served in the smallest amount of time possible and 
+persist fsimage and edit logs on the disk. fsimage contains HDFS directory information, file information, permissions, quotas, last access times and 
+last modification times, and block IDs for files.
+
+HDFS metadata information includes various attributes of directories and files, such as ownership, permissions, quotas, replication factors, and much more. 
+This information is in two files:
+
+fsimage: An fsimage file contains the complete state of the File System to which every File System modification is assigned a unique and an unmodulated 
+increasing transaction ID. An fsimage file represents the File System state up to a specific transaction ID.
+
+edits: An edits log file contains a list of changes that are applied on the File System after the most recent fsimage. The edit log contains an 
+entry for each operation and the checkpoint operation periodically merges fsimage and the edit log by applying all of the changes that are available 
+in the edit logs in fsimage before saving the new fsimage.
+----------------------------------------------
+
+Checkpoint using a secondary NameNode
+Checkpoint is the process of merging an fsimage with edit logs by applying all the actions of the edit log on the fsimage. This process is necessary
+to make sure that the edit log does not grow too large. Let's go into further details of how the checkpoint process works in Hadoop.
+
+In the previous section, we discussed the fsimage and the edit log file. NameNode loads the fsimage into memory when it starts and then applies
+edits from the edit log file to the fsimage. Once this process is complete, it then writes a new fsimage file to the system. At the end of this
+operation, the edit log file does not have anything in it. This process starts only during NameNode startup—it does not perform merging operations 
+while the NameNode is live and is busy serving a request. If the NameNode is up for a long period of time, then the edit log file could get too big.
+Therefore, we may need to have a service that periodically merges edit logs and the fsimage file. The Secondary NameNode does the job of merging the 
+fsimage and the edit log file. The interval for the checkpoint operation and the number of transactions  in the edit log is controlled by 
+two configuration parameters: dfs.namenode.checkpoint.period for intervals and dfs.namenode.checkpoint.txns for the number of transactions. 
+This means that if the limit is reached, then the checkpoint process will be forcefully started, even if the interval period has not been reached. 
+The secondary NameNode also stores the latest fsimage file so that it can be used if anything is required.
+------------------------------------------
