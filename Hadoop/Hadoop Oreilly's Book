@@ -353,3 +353,15 @@ The DataNode sends block information and a heartbeat to both the DataNodes to ma
 In Hadoop 3, we can have more than two NameNodes, and the DataNode will send information to all of those NameNodes. In this way, QJM helps in 
 achieving high availability.
 --------------------------------------
+
+HDFS high availability in Hadoop 3.x
+With Hadoop 2.0, active and standby NameNodes were introduced. At any point, out of two NameNodes, one will always be in active state and
+other will be in standby state. The active NameNode is the one that's responsible for any client requests in the cluster. Standby NameNodes 
+are slave nodes whose responsibility is to keep its state in sync with the active NameNode so that it can provide fast failover in the event
+of failover. However, what if one of the NameNodes fails? In that case, the NameNode would become non-HA. This means that NameNodes can only
+tolerate up to one failure. This behavior is the opposite of the core fault -tolerant behavior of Hadoop, which certainly can accommodate more
+than one failure of DataNodes in a cluster. Keeping that in mind, provisions of more than one standby NameNode was introduced in Hadoop 3. 
+The behavior of additional standby NameNodes will still be the same as any other standby NameNode. They will have their own IDs, RPC, and 
+HTTP addresses. They will use QJM to get the latest edit logs and update their fsimage.
+--------------------------------------------
+
