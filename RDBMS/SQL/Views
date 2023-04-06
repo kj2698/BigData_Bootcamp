@@ -1,0 +1,21 @@
+Views are just the simplified name which is given to a complex query.
+views dont store the data, it only stores the structure of the views like column names and data types.
+views reduces the complexity of a query and it can be used by a non tech person as well.
+when we query a view, behind the scene it runs the query which is used to create that view itself.
+
+create view v1 as select * from t1;
+
+here I have created a view v1, now if I want to run the same query again it will throw error saying view already exists.
+you can use,
+
+create or replace view v1 as select * from t1;
+this won't give error, if view exits it will replace v1 and if the view does not exists then it will create the new view.
+
+if you want to update the col name then you can use alter view command.
+
+t1 was used to create v1 then let say if we add a new col to t1, then if we query v1 so is it going to show the new col?
+the ans is no it will not show the new column becoz we already mentioned on querying a new it runs the query which was used to create it,
+but it also stores the schema of the view. hence new col will not appear.
+
+checkout the video:
+https://www.youtube.com/watch?v=cLSxasHg9WY
