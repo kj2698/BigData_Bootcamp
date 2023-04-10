@@ -471,3 +471,20 @@ The primary objective of balancer is to move data from the DataNode whose thresh
 lower than the DFS usage. The balancer also takes care of the rack policy, where it minimizes the data transfer between two different racks.
 ----------------------------
 
+Best practices for using balancer 
+In this section, we will talk about how we can optimize a balancer job, when to use balancer, and some best practices regarding it.
+
+We should always run balancer when a new node is added to a cluster because the newly added node will have no block initially and it will be under-utilized. 
+Normally, in a big cluster that consists of a large number of DataNode servers, it is good practice to run balancer at regular intervals. The idea is to a
+schedule one job, which will take care of running the balancer at regular intervals. Don't worry if the balancer is already running and the cron job has 
+scheduled another balancing job—the new balancer will not start until the previous ends its execution.
+
+Balancer is also a task and it must finish as early as possible. Each DataNode allocates 10 MBPS bandwidth for the balancer job. We may want to take 
+care of two things: allocating more bandwidth to the DataNode should not affect other jobs, and getting the maximum performance from the balancer by 
+increasing the bandwidth. Generally, if you have 200 MBPS bandwidth, you can allocate 10% of it, that is, 20 MBPS for the balancer without impacting on
+other jobs. You can use the following command to increase the bandwidth to 15 MBPS:
+
+$ su hdfs -c 'hdfs dfsadmin -setBalancerBandwidth 15728640'
+It is good practice to invoke the balancer when the cluster is not using its resources extensively. In such a case, it is easy to ask for more 
+bandwidth for the balancer and the balancer will finish earlier than expected. 
+---------------------------
