@@ -407,3 +407,25 @@ two configuration parameters: dfs.namenode.checkpoint.period for intervals and d
 This means that if the limit is reached, then the checkpoint process will be forcefully started, even if the interval period has not been reached. 
 The secondary NameNode also stores the latest fsimage file so that it can be used if anything is required.
 ------------------------------------------
+
+Data integrity
+Data integrity ensures that no data is lost or corrupted during storage or processing of data. HDFS stores huge volumes of data that consists of a
+large number of HDFS blocks. Typically, in a big cluster that consist of thousands of nodes, there are more chances of machine failures. Imagine 
+that your replication factor is three and two of the machines storing replication for a particular block failed and that the last replica block is
+corrupted. You may lose your data in such cases, and so it is necessary to configure a good replication factor and do regular block scanning to
+verify that the block is not corrupted. HDFS maintains data integrity using the checksum mechanism.
+
+Checksum: Checksum is calculated for each block that is written to HDFS. HDFS maintains checksum for each block and verifies checksum when it reads 
+data. The DataNode is responsible for storing data and checksum is responsible for all of the data stored on it. In this way, when the client reads 
+data from the DataNode, they also read the checksum of data. The DataNode regularly runs a block scanner to verify the data blocks stored on them. 
+If a corrupt block is found, HDFS reads a replica of the corrupted block and replaces the block with a new replica. Let's see how checksum verification
+happens in read and write operations:
+
+HDFS write: The DataNode is responsible for verifying the checksum of the block. During the write operation, the checksum is created for a file that
+has to be written to HDFS. Previously, we discussed the HDFS write operation, where a file is split into blocks and HDFS creates a block pipeline.
+The DataNode, which is responsible for storing the last block in the pipeline, compares the checksum, and if the checksum does not match, it sends 
+ChecksumException to the client and the client can then take necessary action, such as retrying the operation and so on. 
+HDFS read: When the clients starts reading data from the DataNode, it also compares the checksum of the block and if the checksum is not equal, then 
+it sends information to the NameNode so that the NameNode marks the block as corrupted and takes necessary action to replace the corrupted block 
+with another replica. The NameNode does not use these DataNodes for any other client request until it is replaced or removed from the corrupted entry list. 
+------------------------------------------
