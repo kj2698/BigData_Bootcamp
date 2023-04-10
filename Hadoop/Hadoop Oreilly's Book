@@ -429,3 +429,45 @@ HDFS read: When the clients starts reading data from the DataNode, it also compa
 it sends information to the NameNode so that the NameNode marks the block as corrupted and takes necessary action to replace the corrupted block 
 with another replica. The NameNode does not use these DataNodes for any other client request until it is replaced or removed from the corrupted entry list. 
 ------------------------------------------
+
+Data rebalancing
+HDFS is a scalable distributed storage File System, and data stored on it increases over time. As data volume increases, a few DataNodes may hold more 
+blocks than other DataNodes, and this may cause more read and write requests to DataNodes with more blocks. Thus, these DataNodes will be very busy 
+serving requests compared to other DataNodes.
+
+HDFS is a scalable system and consists of commodity hardware. On large clusters where data volumes are high, the chances of DataNodes failing is higher. 
+Also, adding new DataNodes to manage data volume is common. The removal or addition of DataNodes can cause data to be skewed where a few DataNodes 
+hold more blocks than others. To avoid such problems, HDFS has a tool known as a balancer. Let's see how HDFS stores blocks and what scenario it 
+takes into consideration.
+
+When a new request comes to store a block, HDFS considers the following approaches:
+
+Distributing data uniformly across the DataNode in a cluster.
+Storing one replica on the same rack where the first block was written. This helps optimize cross-rack I/O.
+Storing another replica on a different rack to support fault-tolerance in the case of rack failure.
+When a new node is added, HDFS does not distribute previously stored blocks to it. Instead, it uses this DataNode to store new blocks. 
+If a failed DataNode is removed, then a few of the blocks will be under-replicated. Therefore, HDFS will balance the replicas by storing them in different DataNodes. 
+The balancer is used to balance the HDFS cluster, and by doing so it evenly distributes blocks across all the DataNodes in a cluster. Now, the 
+obvious question is, when do we call a cluster a balance cluster? We can call a cluster a balanced cluster when the percentage of free space or 
+utilized space of all DataNodes is above or below the specified threshold size. The balancer maintains the threshold by moving data from 
+over-utilized DataNodes to under-utilized DataNodes, which ensures that all DataNodes have an equal amount of free space.
+
+
+Let's look at two important properties that are used with the balancer:
+
+Threshold: The threshold is used to ensure that the overall usage of all DataNodes does not exceed or drop lower than the configured threshold
+percentage for the overall cluster usage. Simply, if the overall cluster usage is 60% and the threshold that's been configured is 5%, then each 
+DataNode usage capacity should be between 55% to 65%. The default threshold is 10%, but you can change it by using the following command when you 
+are running the balancer:
+        $ hdfs balancer –threshold 15
+In the preceding case, if the overall disk usage is 60% and we run the balancer using the preceding command, then the balancer will make sure that 
+the cluster usage at each DataNode is between 45% and 75%. This means that the balancer will only balance those DataNodes whose usage percentage is 
+less than 45% and more then 75%. 
+
+Policy: Policy is of two types: one is DataNode and the other is Blockpool. By default, the value is used to balance storage at the DataNode level, but 
+for clusters where we are using the HDFS Federation service, we should change it to a Blockpool so that balancer ensures that blocks from one Blockpool 
+do not move to another. 
+The primary objective of balancer is to move data from the DataNode whose threshold is higher than DFS usage to a DataNode whose threshold is 
+lower than the DFS usage. The balancer also takes care of the rack policy, where it minimizes the data transfer between two different racks.
+----------------------------
+
