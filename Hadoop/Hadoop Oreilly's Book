@@ -597,3 +597,12 @@ Once the client has finished reading data from all the blocks, it closes the con
 
 Every operation request will go through the NameNode, and the NameNode helps the client by providing metadata information about the request.
 -----------------------------------------------------
+Short circuit reads
+We walked through the HDFS read steps in the previous sections and have seen how DataNode is involved in the read operation. In short, the HDFS client
+receives block details from the NameNode and asks the DataNode to read a file. The DataNode reads the file and sends the data to the client 
+using TCP sockets. In a short circuit read, the DataNode is not involved and the HDFS client reads the file directly. However, this is only possible
+when the client is on the same machine where the data is being kept. 
+
+Earlier, even if the client was on the same machine where the data was, DataNode was used to read data and serve packets using TCP sockets. This involved
+having an overhead of threads and other processing resources. Short circuit read optimizes this by reducing this overhead.
+---------------------------------
