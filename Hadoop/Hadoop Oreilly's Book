@@ -556,4 +556,44 @@ to the pipeline and then waits for an acknowledgement.
 Finally, the client sends a completion signal to the NameNode after its final acknowledgement is received. Thus, NameNode has information about
 all of the packets and their block location, which can be accessed while reading the file. 
 --------------------------------
+Read workflows
+We have seen how a file can be written to HDFS and how HDFS works internally to make sure that the file is written in a distributed fashion. Now, we will
+see how a file is read using the HDFS client and how it works internally. Similar to HDFS write, NameNode is also a primary contact for the read operation.
+The following diagram shows the detailed steps of the file read operation of HDFS:
 
+
+
+HDFS calls open() on a particular file that it wants to use by using the FileSystem object, which internally calls open() of DistributedFileSystem: 
+
+public FSDataInputStream open(Path f) throws IOException {
+  return open(f, getConf().getInt(IO_FILE_BUFFER_SIZE_KEY,
+      IO_FILE_BUFFER_SIZE_DEFAULT));
+} 
+
+public abstract FSDataInputStream open(Path f, int bufferSize)
+  throws IOException;
+NameNode returns IOException with the appropriate message the client does not have permission to read the file or the file does not exist.
+
+NameNode contains all the metadata information about the files. DistributedFileSystem makes an RPC call to the NameNode to get blocks of files. NameNode
+returns a list of DataNodes for each block, which are sorted based on the proximity of the HDFS client, that is, the NameNode nearest to the client will 
+be first in the list. 
+
+The open() method returns FSDataInputStream to the client to read data. DFSInputStream is wrapped within FSDataInputStream and is responsible for managing 
+the DataNodes. DFSInputStream connects to the DataNode using the DataNode addresses, which it received in the first block. Data is returned to the client 
+in the form of a stream.
+
+When data from the block is read successfully, DFSInputStream will close the connection with the DataNode and then take the nearest DataNode for the
+next block of the file. Data is then streamed from the DataNode back to the client to which the client calls the read() method repeatedly on 
+the stream. When the block ends, DFSInputStream closes the connection to the DataNode to which the DFSInputStream then finds the
+suitable DataNode for the next block.
+
+It's obvious that the DataNode may fail or return an error to DFSInputStream. In the case of an error or failure, DFSInpurStream makes an entry of 
+failed DataNodes so that it does not connect to these DataNodes for the next blocks and then connects to the next closest DataNode that contains a 
+replica for the block. Then, it reads the data from there. 
+DFSInputStream also verifies the checksum of the block and if it does not match and finds that the block is corrupted, it reports it to NameNode and 
+then selects the next closest DataNode that contains a replica of the block to read data.
+
+Once the client has finished reading data from all the blocks, it closes the connection using close() on the stream. 
+
+Every operation request will go through the NameNode, and the NameNode helps the client by providing metadata information about the request.
+-----------------------------------------------------
