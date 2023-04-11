@@ -488,3 +488,14 @@ $ su hdfs -c 'hdfs dfsadmin -setBalancerBandwidth 15728640'
 It is good practice to invoke the balancer when the cluster is not using its resources extensively. In such a case, it is easy to ask for more 
 bandwidth for the balancer and the balancer will finish earlier than expected. 
 ---------------------------
+
+HDFS reads and writes
+HDFS is a Distributed File Storage system in which we write data and then read that same data. NameNode is a master node that contains metadata information
+about all the files and DataNode space. The DataNode is a worker node that stores real files. Every read and write request will go through NameNode. HDFS
+is known for the write once read many pattern, meaning that the file is written in HDFS only once and can be read many times. Files stored in HDFS are not
+editable but appending new data to a file is allowed. 
+
+In this section, we will cover the internals of HDFS read and write operations, and will see how clients communicate with NameNode and DataNode for 
+read/write operations.
+----------------------------
+
