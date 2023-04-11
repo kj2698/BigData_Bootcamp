@@ -499,3 +499,61 @@ In this section, we will cover the internals of HDFS read and write operations, 
 read/write operations.
 ----------------------------
 
+Write workflows
+HDFS provides us with the capability to write, read, and delete files from its storage system. You can write data using the command-line utility or by 
+using the programming API interface. However, the write workflow remains the same in both cases. We will go through the internals of HDFS write in this
+section. The following diagram gives a high-level overview of HDFS write: 
+
+
+
+To write a file to HDFS, the HDFS client uses the DistributedFileSystem API and calls its create() method. The signature of the create method is 
+given as follows, which is a part of the FileSystem class. The File System is the parent class of DistributedFileSystem:
+
+public FSDataOutputStream create(Path f) throws IOException {
+  return create(f, true);
+}
+
+public FSDataOutputStream create(Path f, boolean overwrite)
+    throws IOException {
+  return create(f, overwrite, 
+                getConf().getInt(IO_FILE_BUFFER_SIZE_KEY,
+                    IO_FILE_BUFFER_SIZE_DEFAULT),
+                getDefaultReplication(f),
+                getDefaultBlockSize(f));
+}
+ The methods that are mentioned in the preceding code are abstract methods whose implementation is in DistsibutedFileSystem:
+
+public abstract FSDataOutputStream create(Path f,
+    FsPermission permission,
+    boolean overwrite,
+    int bufferSize,
+    short replication,
+    long blockSize,
+    Progressable progress) throws IOException;
+DistributedFileSystem makes an RPC call to NameNode by creating a new file. NameNode checks whether the file exists or not. If it already exists, it will
+throw IOException with a message stating that the file already exists. If the file does not exist, NameNode then uses FSPermission to check whether the
+user has permission to write the file to the mentioned location. Once the permission check is successful, the NameNode makes a record of the new file. 
+If it isn't successful, it will return IOException with a message stating that permission was denied. 
+
+The return type of create() is FSDataOutputStream, which is written to that client after the successful execution of create(). The client uses 
+FsDataOutputStream and we call the write method to write data.
+
+DFSOutputStream is responsible for splitting data into packets of block size. Data is written to an internal data queue called DFSPacket , which contains 
+data, its checksum, sequence number, and other information.
+
+DataStreamer contains a Linked List of DFSPacket, and for each packet it asks NameNode for new DataNodes to store packets and their replicas. 
+DataNodes returned by NameNode form a pipeline, and DataStreamer writes a packet to the first DataNode in the pipeline. The first DataNode stores 
+the packet and forwards it to the second DataNode in the pipeline. This process is repeated until the last DataNode in the pipeline stores the packet. 
+The number of DataNodes in the pipeline depends on the replication factor that's been configured. All of the data blocks are stored in parallel. 
+
+DFSOutputStream also maintains an acknowledgement queue (Linked List) of packets for which acknowledgement is not received from the DataNode. Once 
+the packet is copied by the DataNode in the pipeline, the DataNode sends an acknowledgement. This acknowledgement queue is used to restart the 
+operation if the data node in the pipeline fails.
+
+Once the HDFS client finishes writing data, it closes the stream by calling close() on the stream. The close operation flushes the remaining data 
+to the pipeline and then waits for an acknowledgement.
+
+Finally, the client sends a completion signal to the NameNode after its final acknowledgement is received. Thus, NameNode has information about
+all of the packets and their block location, which can be accessed while reading the file. 
+--------------------------------
+
