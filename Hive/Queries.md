@@ -29,3 +29,25 @@ Time taken: 0.899 seconds, Fetched: 2 row(s)
 alex^Araipur^BCG^Apython^C95^Bperl^C90^Akey1^Cdev^Dlead
 yoyo^Apune^Apy^C70^Bperl^C80^Bc^C90^Akey1^Cdev^Bkey2^Cdev^Dlead
 
+# one more example:
+vi employee.txt
+Michael|Montreal,Toronto|Male,30|DB:80|Product:Developer^DLead
+Will|Montreal|Male,35|Perl:85|Product:Lead,Test:Lead
+Shelley|New York|Female,27|Python:80|Test:Lead,COE:Architect
+Lucy|Vancouver|Female,57|Sales:89,HR:94|Sales:Lead
+
+CREATE TABLE employee (
+      name STRING,
+      work_place ARRAY<STRING>,
+      gender_age STRUCT<gender:STRING,age:INT>,
+      skills_score MAP<STRING,INT>,
+      depart_title MAP<STRING,ARRAY<STRING>>
+      )
+      ROW FORMAT DELIMITED
+      FIELDS TERMINATED BY '|'
+      COLLECTION ITEMS TERMINATED BY ','
+      MAP KEYS TERMINATED BY ':'
+      STORED AS TEXTFILE;
+  
+  For nested types, the level of nesting determines the delimiter. Using ARRAY of ARRAY as an example, the delimiters for the outer ARRAY, as expected, are Ctrl + B characters, but the inner ARRAY delimiter becomes Ctrl + C characters, which is the next delimiter in the list. In the preceding example, the depart_title column, which is a MAP of ARRAY, the MAP key delimiter is Ctrl + C, and the ARRAY delimiter is Ctrl + D.
+  
