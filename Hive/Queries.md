@@ -33,8 +33,11 @@ yoyo^Apune^Apy^C70^Bperl^C80^Bc^C90^Akey1^Cdev^Bkey2^Cdev^Dlead
 vi employee.txt
 
 Michael|Montreal,Toronto|Male,30|DB:80|Product:Developer^DLead
+
 Will|Montreal|Male,35|Perl:85|Product:Lead,Test:Lead
+
 Shelley|New York|Female,27|Python:80|Test:Lead,COE:Architect
+
 Lucy|Vancouver|Female,57|Sales:89,HR:94|Sales:Lead
 
 CREATE TABLE employee (
