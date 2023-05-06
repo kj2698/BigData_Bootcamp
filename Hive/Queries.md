@@ -183,3 +183,18 @@ When JOIN is performed between multiple tables, Yarn/MapReduce jobs are created 
 > FROM employee emp
 > JOIN employee_hr emph ON emp.name = emph.name
 > JOIN employee_id empi ON emph.employee_id = empi.employee_id;
+      
+ # Cross Join
+ The CROSS JOIN statement does not have a join condition. The CROSS JOIN statement can also be written using join without condition or with the always true condition, such as 1 = 1.
+      
+ > SELECT 
+> emp.name, emph.sin_number
+> FROM employee emp
+> JOIN employee_hr emph on 1=1;
+
+#Although Hive did not support unequal joins explicitly in the earlier version, there are workarounds by using CROSS JOIN and WHERE, as in this example:
+> SELECT 
+> emp.name, emph.sin_number
+> FROM employee emp
+> CROSS JOIN employee_hr emph 
+> WHERE emp.name <> emph.name;
