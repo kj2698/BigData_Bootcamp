@@ -143,4 +143,4 @@ The most common use case for Hive is to query data in Hadoop. To achieve this, w
 ```
  
       
-#hi
+# hi
