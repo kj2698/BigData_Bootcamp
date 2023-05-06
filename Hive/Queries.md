@@ -104,3 +104,20 @@ Found 2 items
 /user/hive/warehouse/employee_id_buckets/000000_0
 -rwxrwxrwx   1 hive hive        582 2018-07-02 10:54 
 /user/hive/warehouse/employee_id_buckets/000001_0
+      
+# Views are logical data structures that can be used to simplify queries by hiding the complexities, such as joins, subqueries, and filters. It is called logical because views are only defined in metastore without the footprint in HDFS. Unlike what's in the relational database, views in HQL do not store data or get materialized. Once the view is created, its schema is frozen immediately. Subsequent changes to the underlying tables (for example, adding a column) will not be reflected in the view's schema. If an underlying table is dropped or changed, subsequent attempts to query the invalid view will fail. In addition, views are read-only and may not be used as the target of the LOAD/INSERT/ALTER statements.
+
+The following is an example of a view creation statement:
+
+> CREATE VIEW IF NOT EXISTS employee_skills
+> AS
+> SELECT 
+> name, skills_score['DB'] as DB,
+> skills_score['Perl'] as Perl, 
+> skills_score['Python'] as Python,
+> skills_score['Sales'] as Sales, 
+> skills_score['HR'] as HR 
+> FROM employee;
+No rows affected (0.253 seconds)
+
+# When creating views, there is no yarn job triggered since this is only a metadata change. However, the job will be triggered when querying the view. To check the view definition, we can use the SHOW statement. When modifying the view definition, we can use the ALTER VIEW statement. 
