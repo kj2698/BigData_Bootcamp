@@ -222,3 +222,95 @@ In addition, the LEFT SEMI JOIN statement is also a type of MapJoin. It is the s
 
 > SELECT a.name FROM employee a
 > LEFT SEMI JOIN employee_id b ON a.name = b.name;
+      
+      
+# Data exchange with INSERT
+Insert data from the CTE statement
+```
+      > WITH a as (
+      > SELECT * FROM ctas_employee 
+      > )
+      > FROM a 
+      > INSERT OVERWRITE TABLE employee
+      > SELECT *;
+      No rows affected (30.1 seconds)
+```
+
+Run multi-insert by only scanning the source table once for better performance:
+```
+      > FROM ctas_employee
+      > INSERT OVERWRITE TABLE employee
+      > SELECT *
+      > INSERT OVERWRITE TABLE employee_internal
+      > SELECT * 
+      > INSERT OVERWRITE TABLE employee_partitioned 
+      > PARTITION (year=2018, month=9) -- Insert to static partition
+      > SELECT *
+      > ; 
+      No rows affected (27.919 seconds)
+```
+
+The INSERT OVERWRITE statement will replace the data in the target table/partition, while INSERT INTO will append data.
+When inserting data into the partitions, we need to specify the partition columns. Instead of specifying static partition values, Hive also supports dynamically giving partition values. Dynamic partitions are useful when it is necessary to populate partitions dynamically from data values. Dynamic partitions are disabled by default because a careless dynamic partition insert could create many partitions unexpectedly. We have to set the following properties to enable dynamic partitions:
+
+> SET hive.exec.dynamic.partition=true;
+
+By default, the user must specify at least one static partition column. This is to avoid accidentally overwriting partitions. To disable this restriction, we can set the partition mode to nonstrict from the default strict mode before inserting into dynamic partitions as follows:
+
+> SET hive.exec.dynamic.partition.mode=nonstrict;
+
+
+Partition year, month are determined from data
+
+> INSERT INTO TABLE employee_partitioned
+> PARTITION(year, month)
+> SELECT name, array('Toronto') as work_place,
+> named_struct("gender","Male","age",30) as gender_age,
+> map("Python",90) as skills_score,
+> map("R&D",array('Developer')) as depart_title, 
+> year(start_date) as year, month(start_date) as month
+> FROM employee_hr eh
+> WHERE eh.employee_id = 102;
+No rows affected (29.024 seconds)
+Complex type constructors are used in the preceding example to create a constant value of a complex data type.
+
+INSERT also supports writing data to files, which is the opposite operation compared to LOAD. It is usually used to extract data from SELECT statements to files in the local/HDFS directory. However, it only supports the OVERWRITE keyword, which means we can only overwrite rather than append data to the data files. By default, the columns are separated by Ctrl+A and rows are separated by newlines in the exported file. Column, row, and collection separators can also be overwritten like in the table creation statement. The following are a few examples of exporting data to files using the INSERT OVERWRITE ... directory statement:
+
+We can insert to local files with default row separators
+
+> INSERT OVERWRITE LOCAL DIRECTORY '/tmp/output1'
+> SELECT * FROM employee;
+No rows affected (30.859 seconds)
+	  
+Many partial files could be created by reducers when doing an insert into a directory. To merge them into one file, we can use the HDFS merge command: hdfs dfs –getmerge <exported_hdfs_folder> <local_folder>.
+Insert into local files with specified row separators
+
+>INSERT OVERWRITE LOCAL DIRECTORY '/tmp/output2'
+>ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+>SELECT * FROM employee;
+No rows affected (31.937 seconds)
+      
+```
+      -- Verify the separator
+      $vi /tmp/output2/000000_0
+      Michael,Montreal^BToronto,Male^B30,DB^C80,
+      Product^CDeveloper^DLead
+      Will,Montreal,Male^B35,Perl^C85,Product^CLead^BTest^CLead
+      Shelley,New York,Female^B27,Python^C80,Test^CLead^BCOE^CArchitect
+      Lucy,Vancouver,Female^B57,Sales^C89^BHR^C94,Sales^CLead
+```
+
+Use multi-insert statements to export data from the same table:
+      > FROM employee
+      > INSERT OVERWRITE DIRECTORY '/user/dayongd/output3'
+      > SELECT *
+      > INSERT OVERWRITE DIRECTORY '/user/dayongd/output4'
+      > SELECT name ;
+      No rows affected (25.4 seconds)
+# Combined HQL and HDFS shell commands, we can extract data to local or remote files with both append and overwrite supported. The hive -e quoted_hql_string or hive -f <hql_filename> commands can execute a HQL query or query file. Linux's redirect operators and piping can be used with these commands to redirect result sets. The following are a few examples:
+```
+Append to local files: $hive -e 'select * from employee' >> test
+Overwrite local files: $hive -e 'select * from employee' > test
+Append to HDFS files: $hive -e 'select * from employee'|hdfs dfs -appendToFile - /tmp/test1 
+Overwrite HDFS files: $hive -e 'select * from employee'|hdfs dfs -put -f - /tmp/test2
+```
