@@ -370,3 +370,21 @@ The array_contains(...) function checks whether an array contains some values or
 +-------------+-------------------------+
 4 rows selected (0.059 seconds)
 ```
+	
+# Virtual column functions
+Virtual columns are special functions in HQL. Right now, there are two virtual columns: INPUT__FILE__NAME and BLOCK__OFFSET__INSIDE__FILE. The INPUT__FILE__NAME function shows the input file's name for a mapper task.The BLOCK__OFFSET__INSIDE__FILE function shows the current global file position or the current block's file offset if the file is compressed. The following are examples of using virtual columns to find out where data is physically located in HDFS, especially for bucketed and partitioned tables:
+
+```
+> SELECT 
+> INPUT__FILE__NAME,BLOCK__OFFSET__INSIDE__FILE as OFFSIDE
+> FROM employee;
++-----------------------------------------------------------------------+
+| input__file__name                                           | offside |
++-----------------------------------------------------------------------+
+| hdfs://localhost:9000/user/hive/warehouse/employee/000000_0 | 0       |
+| hdfs://localhost:9000/user/hive/warehouse/employee/000000_0 | 62      |
+| hdfs://localhost:9000/user/hive/warehouse/employee/000000_0 | 115     |
+| hdfs://localhost:9000/user/hive/warehouse/employee/000000_0 | 176     |
++-------------------------------------------------------------+---------+
+4 rows selected (0.47 seconds)
+```
