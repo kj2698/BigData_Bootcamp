@@ -121,3 +121,19 @@ The following is an example of a view creation statement:
 No rows affected (0.253 seconds)
 
 # When creating views, there is no yarn job triggered since this is only a metadata change. However, the job will be triggered when querying the view. To check the view definition, we can use the SHOW statement. When modifying the view definition, we can use the ALTER VIEW statement. 
+      
+# Project data with SELECT
+The most common use case for Hive is to query data in Hadoop. To achieve this, we need to write and execute a SELECT statement. The typical work done by the SELECT statement is to project the whole row (with SELECT *) or specified columns (with SELECT column1, column2, ...) from a table, with or without conditions.Most simple SELECT statements will not trigger a Yarn job. Instead, a dump task is created just for dumping the data, such as the hdfs dfs -cat command. The SELECT statement is quite often used with the FROM and DISTINCT keywords. A FROM keyword followed by a table is where SELECT projects data. The DISTINCT keyword used after SELECT ensures only unique rows or combination of columns are returned from the table. In addition, SELECT also supports columns combined with user-defined functions, IF(), or a CASE WHEN THEN ELSE END statement, and regular expressions.
+      
+ -- List all columns match java regular expression
+      > SET hive.support.quoted.identifiers = none; -- Enable this
+      > SELECT `^work.*` FROM employee; -- All columns start with work
+      +------------------------+
+      | employee.work_place    |
+      +------------------------+
+      | ["Montreal","Toronto"] |
+      | ["Montreal"]           |
+      | ["New York"]           |
+      | ["Vancouver"]          |
+      +------------------------+
+      4 rows selected (0.141 seconds)
