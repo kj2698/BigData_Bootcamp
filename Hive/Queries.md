@@ -314,3 +314,12 @@ Overwrite local files: $hive -e 'select * from employee' > test
 Append to HDFS files: $hive -e 'select * from employee'|hdfs dfs -appendToFile - /tmp/test1 
 Overwrite HDFS files: $hive -e 'select * from employee'|hdfs dfs -put -f - /tmp/test2
 ```
+
+# Functions
+To list all operators, built-in functions, and user-defined functions, we can use the SHOW FUNCTIONS commands. For more details of a specific function, we can use DESC [EXTENDED] function_name as follows:
+
+```
+> SHOW FUNCTIONS; -- List all functions
+> DESCRIBE FUNCTION <function_name>; -- Detail for the function
+> DESCRIBE FUNCTION EXTENDED <function_name>; -- More details 
+```
