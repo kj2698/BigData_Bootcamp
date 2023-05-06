@@ -323,3 +323,50 @@ To list all operators, built-in functions, and user-defined functions, we can us
 > DESCRIBE FUNCTION <function_name>; -- Detail for the function
 > DESCRIBE FUNCTION EXTENDED <function_name>; -- More details 
 ```
+
+	# Function tips for collections
+The size(...) function is used to calculate the collection size for the MAP, ARRAY, or nested MAP/ARRAY. It returns -1 if the collection is NULL and returns 0 if the collection is empty, as follows:
+```
+> SELECT 
+> SIZE(work_place) as array_size,
+> SIZE(skills_score) as map_size,
+> SIZE(depart_title) as complex_size,
+> SIZE(depart_title["Product"]) as nest_size
+> FROM employee;
++-------------+-----------+---------------+------------+
+| array_size  | map_size  | complex_size  | nest_size  |
++-------------+-----------+---------------+------------+
+| 2           | 1         | 1             | 2          |
+| 1           | 1         | 2             | 1          |
+| 1           | 1         | 2             | -1         |
+| 1           | 2         | 1             | -1         |
++-------------+-----------+---------------+------------+
+4 rows selected (0.062 seconds)
+
+
+> SELECT size(null), size(array(null)), size(array());
++-----+-----+-----+
+| _c0 | _c1 | _c2 |
++-----+-----+-----+
+| -1  |  1  |  0  |
++-----+-----+-----+
+1 row selected (11.453 seconds)
+```
+
+The array_contains(...) function checks whether an array contains some values or not and returns TRUE or FALSE. The sort_array(...) function sorts the array in ascending order. These can be used as follows:
+
+```
+> SELECT 
+> array_contains(work_place, 'Toronto') as is_Toronto,
+> sort_array(work_place) as sorted_array
+> FROM employee;
++-------------+-------------------------+
+| is_toronto  |      sorted_array       |
++-------------+-------------------------+
+| true        | ["Montreal","Toronto"]  |
+| false       | ["Montreal"]            |
+| false       | ["New York"]            |
+| false       | ["Vancouver"]           |
++-------------+-------------------------+
+4 rows selected (0.059 seconds)
+```
