@@ -192,7 +192,7 @@ When JOIN is performed between multiple tables, Yarn/MapReduce jobs are created 
 > FROM employee emp
 > JOIN employee_hr emph on 1=1;
 
-#Although Hive did not support unequal joins explicitly in the earlier version, there are workarounds by using CROSS JOIN and WHERE, as in this example:
+# Although Hive did not support unequal joins explicitly in the earlier version, there are workarounds by using CROSS JOIN and WHERE, as in this example:
 > SELECT 
 > emp.name, emph.sin_number
 > FROM employee emp
