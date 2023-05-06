@@ -56,8 +56,7 @@ CREATE TABLE employee(
       FIELDS TERMINATED BY '|'
       COLLECTION ITEMS TERMINATED BY ','
       MAP KEYS TERMINATED BY ':'
-      STORED AS TEXTFILE;
-      )`
+      STORED AS TEXTFILE;`
   
   For nested types, the level of nesting determines the delimiter. Using ARRAY of ARRAY as an example, the delimiters for the outer ARRAY, as expected, are Ctrl + B characters, but the inner ARRAY delimiter becomes Ctrl + C characters, which is the next delimiter in the list. In the preceding example, the depart_title column, which is a MAP of ARRAY, the MAP key delimiter is Ctrl + C, and the ARRAY delimiter is Ctrl + D.
   
