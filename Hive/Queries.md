@@ -128,6 +128,8 @@ The most common use case for Hive is to query data in Hadoop. To achieve this, w
  List all columns match java regular expression
 > SET hive.support.quoted.identifiers = none; -- Enable this
 > SELECT `^work.*` FROM employee; -- All columns start with work
+
+ ```
 +------------------------+
 | employee.work_place    |
 +------------------------+
@@ -137,3 +139,6 @@ The most common use case for Hive is to query data in Hadoop. To achieve this, w
 | ["Vancouver"]          |
 +------------------------+
 4 rows selected (0.141 sec
+```
+ 
+      
