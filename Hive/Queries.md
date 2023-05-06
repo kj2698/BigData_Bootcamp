@@ -63,7 +63,7 @@ CREATE TABLE employee(
 # we already know about internal and external table. so moving on to temporary table.
 Hive also supports creating temporary tables. A temporary table is only visible to the current user session. It's automatically deleted at the end of the session. The data of the temporary table is stored in the user's scratch directory, such as /tmp/hive-<username>. Therefore, make sure the folder is properly configured or secured when you have sensitive data in temporary tables. Whenever a temporary table has the same name as a permanent table, the temporary table will be chosen rather than the permanent table. A temporary table does not support partitions and indexes. The following are three ways to create temporary tables:
       
-```      
+``
 > CREATE TEMPORARY TABLE IF NOT EXISTS tmp_emp1 (
 > name string,
 > work_place ARRAY<string>,
@@ -77,7 +77,7 @@ No rows affected (0.122 seconds)
 > CREATE TEMPORARY TABLE tmp_emp2 as SELECT * FROM tmp_emp1;
   
 > CREATE TEMPORARY TABLE tmp_emp3 like tmp_emp1;
-```
+``
  
       
 # the truncate table statement only removes data from the table. The table still exists, but is empty. Note, truncate table can only apply to an internal table
