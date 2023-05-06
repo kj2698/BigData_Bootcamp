@@ -77,6 +77,6 @@ No rows affected (0.122 seconds)
 > CREATE TEMPORARY TABLE tmp_emp2 as SELECT * FROM tmp_emp1;
   
 > CREATE TEMPORARY TABLE tmp_emp3 like tmp_emp1;```
- 
+ `
       
 # the truncate table statement only removes data from the table. The table still exists, but is empty. Note, truncate table can only apply to an internal table
