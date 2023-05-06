@@ -81,3 +81,26 @@ No rows affected (0.122 seconds)
  
       
 # the truncate table statement only removes data from the table. The table still exists, but is empty. Note, truncate table can only apply to an internal table
+
+# To define the proper number of buckets, we should avoid having too much or too little data in each bucket. A better choice is somewhere near two blocks of data, such as 512 MB of data in each bucket. As a best practice, use 2N as the number of buckets.
+# Bucketing has a close dependency on the data-loading process. To properly load data into a bucket table, we need to either set the maximum number of reducers to the same number of buckets specified in the table creation (for example, 2), or enable enforce bucketing (recommended), as follows:
+
+> set map.reduce.tasks = 2;
+No rows affected (0.026 seconds)
+     
+ 
+> set hive.enforce.bucketing = true; -- This is recommended
+No rows affected (0.002 seconds)
+
+# To populate the data to a bucket table, we cannot use the LOAD DATA statement, because it does not verify the data against the metadata. Instead, INSERT should be used to populate the bucket table all the time:
+
+> INSERT OVERWRITE TABLE employee_id_buckets SELECT * FROM employee_id;
+No rows affected (75.468 seconds)
+
+-- Verify the buckets in the HDFS from shell
+$hdfs dfs -ls /user/hive/warehouse/employee_id_buckets
+Found 2 items
+-rwxrwxrwx   1 hive hive        900 2018-07-02 10:54 
+/user/hive/warehouse/employee_id_buckets/000000_0
+-rwxrwxrwx   1 hive hive        582 2018-07-02 10:54 
+/user/hive/warehouse/employee_id_buckets/000001_0
