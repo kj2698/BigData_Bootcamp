@@ -44,7 +44,7 @@ Shelley|New York|Female,27|Python:80|Test:Lead,COE:Architect
 
 Lucy|Vancouver|Female,57|Sales:89,HR:94|Sales:Lead
 
-`
+```
 CREATE TABLE employee(
       name STRING,
       work_place ARRAY<STRING>,
@@ -56,7 +56,7 @@ CREATE TABLE employee(
       FIELDS TERMINATED BY '|'
       COLLECTION ITEMS TERMINATED BY ','
       MAP KEYS TERMINATED BY ':'
-      STORED AS TEXTFILE;`
+      STORED AS TEXTFILE;```
   
   For nested types, the level of nesting determines the delimiter. Using ARRAY of ARRAY as an example, the delimiters for the outer ARRAY, as expected, are Ctrl + B characters, but the inner ARRAY delimiter becomes Ctrl + C characters, which is the next delimiter in the list. In the preceding example, the depart_title column, which is a MAP of ARRAY, the MAP key delimiter is Ctrl + C, and the ARRAY delimiter is Ctrl + D.
   
