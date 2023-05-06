@@ -198,3 +198,26 @@ When JOIN is performed between multiple tables, Yarn/MapReduce jobs are created 
 > FROM employee emp
 > CROSS JOIN employee_hr emph 
 > WHERE emp.name <> emph.name;
+
+# Special joins
+HQL also supports some special joins that we usually do not see in relational databases, such as MapJoin and Semi-join. MapJoin means doing the join operation only with map, without the reduce job. The MapJoin statement reads all the data from the small table to memory and broadcasts to all maps. During the map phase, the join operation is performed by comparing each row of data in the big table with small tables against the join conditions. Because there is no reduce needed, such kinds of join usually have better performance. In the newer version of Hive, Hive automatically converts join to MapJoin at runtime if possible. However, you can also manually specify the broadcast table by providing a join hint, /*+ MAPJOIN(table_name) */. In addition, MapJoin can be used for unequal joins to improve performance since both MapJoin and WHERE are performed in the map phase. The following is an example of using a MapJoin hint with CROSS JOIN:
+
+> SELECT 
+> /*+ MAPJOIN(employee) */ emp.name, emph.sin_number
+> FROM employee emp
+> CROSS JOIN employee_hr emph 
+> WHERE emp.name <> emph.name;
+The MapJoin operation does not support the following:
+
+Using MapJoin after UNION ALL, LATERAL VIEW, GROUP BY/JOIN/SORT BY/CLUSTER, and BY/DISTRIBUTE BY
+Using MapJoin before UNION, JOIN, and another MapJoin
+Bucket MapJoin is a special type of MapJoin that uses bucket columns (the column specified by CLUSTERED BY in the CREATE TABLE statement) as the join condition. Instead of fetching the whole table, as done by the regular MapJoin, bucket MapJoin only fetches the required bucket data. To enable bucket MapJoin, we need to enable some settings and make sure the bucket number is are multiple of each other. If both joined tables are sorted and bucketed with the same number of buckets, a sort-merge join can be performed instead of caching all small tables in the memory:
+
+> SET hive.optimize.bucketmapjoin = true;
+> SET hive.optimize.bucketmapjoin.sortedmerge = true;
+> SET hive.input.format =
+> org.apache.hadoop.hive.ql.io.BucketizedHiveInputFormat; 
+In addition, the LEFT SEMI JOIN statement is also a type of MapJoin. It is the same as a subquery with IN/EXISTS after v0.13.0 of Hive. However, it is not recommended for use since it is not part of standard SQL:
+
+> SELECT a.name FROM employee a
+> LEFT SEMI JOIN employee_id b ON a.name = b.name;
