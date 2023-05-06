@@ -143,4 +143,34 @@ The most common use case for Hive is to query data in Hadoop. To achieve this, w
 ```
  
       
-# hi
+# IN
+IN/NOT IN is used as an expression to check whether values belong to a set specified by IN or NOT IN. With effect from Hive v2.1.0, IN and NOT IN statements support more than one column:
+
+> SELECT name FROM employee WHERE gender_age.age in (27, 30);
+
+ ```
++----------+
+| name     |
++----------+
+| Michael  |
+| Shelley  |
++----------+
+2 rows selected (0.3 seconds)
+ ```
+ 
+With multiple columns support after v2.1.0
+> SELECT 
+> name, gender_age 
+> FROM employee 
+> WHERE (gender_age.gender, gender_age.age) IN 
+> (('Female', 27), ('Male', 27 + 3)); -- Also support expression
+
+```      
++---------+------------------------------+
+| name    | gender_age                   |
++---------+------------------------------+
+| Michael | {"gender":"Male","age":30}   |
+| Shelley | {"gender":"Female","age":27} |
++---------+------------------------------+
+2 rows selected (0.282 seconds)
+```
