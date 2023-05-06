@@ -44,12 +44,18 @@ Shelley|New York|Female,27|Python:80|Test:Lead,COE:Architect
 
 Lucy|Vancouver|Female,57|Sales:89,HR:94|Sales:Lead
 
-CREATE TABLE employee (
+CREATE TABLE employee(
+
       name STRING,
+      
       work_place ARRAY<STRING>,
+      
       gender_age STRUCT<gender:STRING,age:INT>,
+      
       skills_score MAP<STRING,INT>,
+      
       depart_title MAP<STRING,ARRAY<STRING>>
+      
       )
       ROW FORMAT DELIMITED
       FIELDS TERMINATED BY '|'
