@@ -174,3 +174,12 @@ With multiple columns support after v2.1.0
 +---------+------------------------------+
 2 rows selected (0.282 seconds)
 ```
+
+# Join
+When JOIN is performed between multiple tables, Yarn/MapReduce jobs are created to process the data in the HDFS. Each of the jobs is called a stage. Usually, it is suggested to put the big table right at the end of the JOIN statement for better performance and to avoid Out Of Memory (OOM) exceptions. This is because the last table in the JOIN sequence is usually streamed through reducers where as the others are buffered in the reducer by default. Also, a hint, /*+STREAMTABLE (table_name)*/, can be specified to advise which table should be streamed over the default decision, as in the following example:
+
+> SELECT /*+ STREAMTABLE(employee_hr) */
+> emp.name, empi.employee_id, emph.sin_number
+> FROM employee emp
+> JOIN employee_hr emph ON emp.name = emph.name
+> JOIN employee_id empi ON emph.employee_id = empi.employee_id;
