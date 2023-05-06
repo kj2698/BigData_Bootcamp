@@ -212,11 +212,12 @@ The MapJoin operation does not support the following:
 Using MapJoin after UNION ALL, LATERAL VIEW, GROUP BY/JOIN/SORT BY/CLUSTER, and BY/DISTRIBUTE BY
 Using MapJoin before UNION, JOIN, and another MapJoin
 Bucket MapJoin is a special type of MapJoin that uses bucket columns (the column specified by CLUSTERED BY in the CREATE TABLE statement) as the join condition. Instead of fetching the whole table, as done by the regular MapJoin, bucket MapJoin only fetches the required bucket data. To enable bucket MapJoin, we need to enable some settings and make sure the bucket number is are multiple of each other. If both joined tables are sorted and bucketed with the same number of buckets, a sort-merge join can be performed instead of caching all small tables in the memory:
-
+```
 > SET hive.optimize.bucketmapjoin = true;
 > SET hive.optimize.bucketmapjoin.sortedmerge = true;
-> SET hive.input.format =
-> org.apache.hadoop.hive.ql.io.BucketizedHiveInputFormat; 
+> SET hive.input.format =org.apache.hadoop.hive.ql.io.BucketizedHiveInputFormat; 
+ ```
+      
 In addition, the LEFT SEMI JOIN statement is also a type of MapJoin. It is the same as a subquery with IN/EXISTS after v0.13.0 of Hive. However, it is not recommended for use since it is not part of standard SQL:
 
 > SELECT a.name FROM employee a
