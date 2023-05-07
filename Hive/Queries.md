@@ -565,3 +565,140 @@ Sometimes, we may need to find the max. or min. value of particular columns as w
 Although it still needs to use the GROUP BY clause, this job is more efficient than a regular GROUP BY or subquery, as it only triggers one job. 
 
 # The hive.map.aggr property controls aggregations in the map task. The default value for this setting is true, so Hive will do the first-level aggregation directly in the map task for better performance, but consume more memory. Turn it off if you run out of memory in the map phase.
+
+# Enhanced aggregation
+Hive offers enhanced aggregation by using the GROUPING SETS, CUBE, and ROLLUP keywords.
+
+# Grouping sets
+GROUPING SETS implements advanced multiple GROUP BY operations against the same set of data. Actually, GROUPING SETS are a shorthand way of connecting several GROUP BY result sets with UNION ALL. The GROUPING SETS keyword completes all processes in a single stage of the job, which is more efficient. A blank set () in the GROUPING SETS clause calculates the overall aggregation. The following are a few examples to show the equivalence of GROUPING SETS. For better understanding, we can say that the outer level (brace) of GROUPING SETS defines what data UNION ALL is to be implemented. The inner level (brace) defines what GROUP BY data is to be implemented in each UNION ALL.
+
+Grouping set with one element of column pairs:
+```
+      SELECT 
+      name, start_date, count(sin_number) as sin_cnt 
+      FROM employee_hr
+      GROUP BY name, start_date 
+      GROUPING SETS((name, start_date));
+      --||-- equals to
+      SELECT
+      name, start_date, count(sin_number) as sin_cnt 
+      FROM employee_hr
+      GROUP BY name, start_date;
+      +---------+------------+---------+
+      | name    | start_date | sin_cnt |
+      +---------+------------+---------+
+      | Lucy    | 2010-01-03 | 1       |
+      | Michael | 2014-01-29 | 1       |
+      | Steven  | 2012-11-03 | 1       |
+      | Will    | 2013-10-02 | 1       |
+      +---------+------------+---------+
+      4 rows selected (26.3 seconds)
+```
+
+Grouping set with two elements:
+```
+      SELECT 
+      name, start_date, count(sin_number) as sin_cnt 
+      FROM employee_hr
+      GROUP BY name, start_date 
+      GROUPING SETS(name, start_date);
+      --||-- equals to
+      SELECT 
+      name, null as start_date, count(sin_number) as sin_cnt 
+      FROM employee_hr
+      GROUP BY name
+      UNION ALL
+      SELECT 
+      null as name, start_date, count(sin_number) as sin_cnt 
+      FROM employee_hr
+      GROUP BY start_date;
+      ----------+------------+---------+
+      | name    | start_date | sin_cnt |
+      +---------+------------+---------+
+      | NULL    | 2010-01-03 | 1       |
+      | NULL    | 2012-11-03 | 1       |
+      | NULL    | 2013-10-02 | 1       |
+      | NULL    | 2014-01-29 | 1       |
+      | Lucy    | NULL       | 1       |
+      | Michael | NULL       | 1       |
+      | Steven  | NULL       | 1       |
+      | Will    | NULL       | 1       |
+      +---------+------------+---------+
+      8 rows selected (22.658 seconds)
+```
+Grouping set with two elements, a column pair, and a column:
+```
+      SELECT 
+      name, start_date, count(sin_number) as sin_cnt 
+      FROM employee_hr
+      GROUP BY name, start_date 
+      GROUPING SETS((name, start_date), name);
+      --||-- equals to
+      SELECT 
+      name, start_date, count(sin_number) as sin_cnt 
+      FROM employee_hr
+      GROUP BY name, start_date
+      UNION ALL
+      SELECT 
+      name, null as start_date, count(sin_number) as sin_cnt 
+      FROM employee_hr
+      GROUP BY name;
+      +---------+------------+---------+
+      | name    | start_date | sin_cnt |
+      +---------+------------+---------+
+      | Lucy    | NULL       | 1       |
+      | Lucy    | 2010-01-03 | 1       |
+      | Michael | NULL       | 1       |
+      | Michael | 2014-01-29 | 1       |
+      | Steven  | NULL       | 1       |
+      | Steven  | 2012-11-03 | 1       |
+      | Will    | NULL       | 1       |
+      | Will    | 2013-10-02 | 1       |
+      +---------+------------+---------+
+      8 rows selected (22.503 seconds)
+```
+Grouping set with four elements, including all combinations of columns:
+```
+      SELECT 
+      name, start_date, count(sin_number) as sin_cnt 
+      FROM employee_hr
+      GROUP BY name, start_date 
+      GROUPING SETS((name, start_date), name, start_date, ());
+      --||-- equals to
+      SELECT 
+      name, start_date, count(sin_number) as sin_cnt 
+      FROM employee_hr
+      GROUP BY name, start_date
+      UNION ALL
+      SELECT 
+      name, null as start_date, count(sin_number) as sin_cnt 
+      FROM employee_hr
+      GROUP BY name
+      UNION ALL
+      SELECT 
+      null as name, start_date, count(sin_number) as sin_cnt 
+      FROM employee_hr
+      GROUP BY start_date
+      UNION ALL
+      SELECT 
+      null as name, null as start_date, count(sin_number) as sin_cnt 
+      FROM employee_hr
+      +---------+------------+---------+
+      | name    | start_date | sin_cnt |
+      +---------+------------+---------+
+      | NULL    | NULL       | 4       |
+      | NULL    | 2010-01-03 | 1       |
+      | NULL    | 2012-11-03 | 1       |
+      | NULL    | 2013-10-02 | 1       |
+      | NULL    | 2014-01-29 | 1       |
+      | Lucy    | NULL       | 1       |
+      | Lucy    | 2010-01-03 | 1       |
+      | Michael | NULL       | 1       |
+      | Michael | 2014-01-29 | 1       |
+      | Steven  | NULL       | 1       |
+      | Steven  | 2012-11-03 | 1       |
+      | Will    | NULL       | 1       |
+      | Will    | 2013-10-02 | 1       |
+      +---------+------------+---------+
+      13 rows selected (24.916 seconds)
+```
