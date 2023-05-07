@@ -395,6 +395,7 @@ then I will try to load a textfile into the table, it will not throw any error b
 Why this happens?
 This happens because of Schema on Read, hive performs the schema checking while reading the data i.e (on select *). On the other hand RDBMS checks schema while writing data into database.
 
+# Basic aggregation 
 An aggregate function can be used with other aggregate functions in the same SELECT statement. It can also be used with other functions, such as conditional functions, in a nested way. However, nested aggregate functions are not supported. See the following examples for more details:
 ```
 Multiple aggregate functions in the same SELECT statement:
