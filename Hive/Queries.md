@@ -388,3 +388,9 @@ Virtual columns are special functions in HQL. Right now, there are two virtual c
 +-------------------------------------------------------------+---------+
 4 rows selected (0.47 seconds)
 ```
+# Schema on Read VS Schema on Write
+Let say I created a table and write stored as parquet.
+then I will try to load a textfile into the table, it will not throw any error but when I will run select * on table it will throw error.
+
+Why this happens?
+This happens because of Schema on Read, hive performs the schema checking while reading the data i.e (on select *). On the other hand RDBMS checks schema while writing data into database.
