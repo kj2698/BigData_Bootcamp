@@ -394,3 +394,173 @@ then I will try to load a textfile into the table, it will not throw any error b
 
 Why this happens?
 This happens because of Schema on Read, hive performs the schema checking while reading the data i.e (on select *). On the other hand RDBMS checks schema while writing data into database.
+
+An aggregate function can be used with other aggregate functions in the same SELECT statement. It can also be used with other functions, such as conditional functions, in a nested way. However, nested aggregate functions are not supported. See the following examples for more details:
+```
+Multiple aggregate functions in the same SELECT statement:
+      > SELECT 
+      > gender_age.gender, avg(gender_age.age) as avg_age,
+      > count(*) as row_cnt
+      > FROM employee GROUP BY gender_age.gender; 
+      +--------------------+---------------------+----------+
+      | gender_age.gender  |       avg_age       | row_cnt  |
+      +--------------------+---------------------+----------+
+      | Female             | 42.0                | 2        |
+      | Male               | 31.666666666666668  | 3        |
+      +--------------------+---------------------+----------+
+      2 rows selected (98.857 seconds)
+```
+Aggregate functions can also be used with CASE WHEN THEN ELSE END, coalesce(...), or if(...):
+```
+      > SELECT 
+      > sum(CASE WHEN gender_age.gender = 'Male'
+      > THEN gender_age.age ELSE 0 END)/
+      > count(CASE WHEN gender_age.gender = 'Male' THEN 1
+      > ELSE NULL END) as male_age_avg 
+      > FROM employee;
+      +---------------------+
+      |    male_age_avg     |
+      +---------------------+
+      | 31.666666666666668  |
+      +---------------------+
+      1 row selected (38.415 seconds)
+      
+
+      > SELECT
+      > sum(coalesce(gender_age.age,0)) as age_sum,
+      > sum(if(gender_age.gender = 'Female',gender_age.age,0)) as 
+      female_age_sum
+      > FROM employee;
+      +----------+----------------+
+      | age_sum  | female_age_sum |
+      +----------+----------------+
+      | 179      | 84             |
+      +----------+----------------+
+      1 row selected (42.137 seconds)
+GROUP BY can also apply to expressions:
+      > SELECT
+      > if(name = 'Will', 1, 0) as name_group, 
+      > count(name) as name_cnt 
+      > FROM employee 
+      > GROUP BY if(name = 'Will', 1, 0);
+      +------------+----------+
+      | name_group | name_cnt |
+      +------------+----------+
+      | 0          | 3        |
+      | 1          | 1        |
+      +------------+----------+
+      2 rows selected (23.749 seconds)
+```
+Verify that nested aggregate functions are not allowed:
+```
+      > SELECT avg(count(*)) as row_cnt FROM employee;
+      Error: Error while compiling statement: FAILED: SemanticException 
+      [Error 10128]: Line 1:11 Not yet 
+      supported place for UDAF 'count' (state=42000,code=10128)
+```
+
+Aggregate functions such as max(...) or min(...) apply to NULL and return NULL. However, functions such as sum() and avg(...) cannot apply to NULL. The count(null) returns 0.
+```     
+	 > SELECT max(null), min(null), count(null);
+      +------+------+-----+
+      | _c0  | _c1  | _c2 |
+      +------+------+-----+
+      | NULL | NULL |  0  |
+      +------+------+-----+
+      1 row selected (23.54 seconds)
+      
+
+      > SELECT sum(null), avg(null);
+      Error: Error while compiling statement: FAILED: 
+      UDFArgumentTypeException Only numeric or string type 
+      arguments are accepted but void is passed. 
+      (state=42000,code=40000)
+```
+# In addition, we may encounter a very special behavior when dealing with aggregation across columns with a NULL value. The entire row (if one column has NULL as a value in the row) will be ignored. To avoid this, we can use coalesce(...) to assign a default value when the column value is NULL. See the following example:
+
+```
+      -- Create a table t for testing
+      > CREATE TABLE t (val1 int, val2 int);
+      > INSERT INTO TABLE t VALUES (1, 2),(null,2),(2,3);
+      No rows affected (0.138 seconds) 
+      
+
+      -- Check the rows in the table created
+      > SELECT * FROM t;
+      +---------+---------+
+      | t.val1  | t.val2  |
+      +---------+---------+
+      | 1       | 2       |
+      | NULL    | 2       |
+      | 2       | 3       |
+      +---------+---------+
+      3 rows selected (0.069 seconds)
+      
+
+#   The 2nd row (NULL, 2) is ignored when doing sum(val1 + val2)
+      > SELECT sum(val1), sum(val1 + val2) FROM t; 
+      +------+------+
+      | _c0  | _c1  |
+      +------+------+
+      | 3    | 8    |
+      +------+------+
+      1 row selected (57.775 seconds)
+      
+
+      > SELECT 
+      > sum(coalesce(val1,0)),
+      > sum(coalesce(val1,0) + val2) 
+      > FROM t;
+      +------+------+
+      | _c0  | _c1  |
+      +------+------+
+      | 3    | 10   |
+      +------+------+
+      1 row selected (69.967 seconds)
+```
+Aggregate functions can also be used with the DISTINCT keyword to aggregate on unique values:
+```
+      > SELECT 
+      > count(DISTINCT gender_age.gender) as gender_uni_cnt,
+      > count(DISTINCT name) as name_uni_cnt
+      > FROM employee;     
+      +-----------------+---------------+
+      | gender_uni_cnt  | name_uni_cnt  |
+      +-----------------+---------------+
+      | 2               | 5             |
+      +-----------------+---------------+
+      1 row selected (35.935 seconds)
+```
+# When we use COUNT and DISTINCT together, it always ignores the setting (such as mapred.reduce.tasks = 20) for the number of reducers used and may use only one reducer. In this case, the single reducer becomes the bottleneck when processing large volumes of data. The workaround is to use a subquery as follows:
+
+-- May trigger single reducer during the whole processing
+> SELECT count(distinct gender_age.gender) as gender_uni_cnt FROM employee;
+
+```
+-- Use subquery to select unique value before aggregations
+> SELECT 
+> count(*) as gender_uni_cnt 
+> FROM (
+> SELECT DISTINCT gender_age.gender FROM employee
+) a;
+```
+
+In this case, the first stage of the query implementing DISTINCT can use more than one reducer. In the second stage, the mapper will have less output just for the COUNT purpose, since the data is already unique after implementing DISTINCT. As a result, the reducer will not be overloaded.
+
+Sometimes, we may need to find the max. or min. value of particular columns as well as other columns, for example, to answer this question: who are the oldest males and females with ages in the employee table? To achieve this, we can also use max/min on a struct as follows, instead of using subqueries/window functions:
+
+> SELECT gender_age.gender, 
+> max(struct(gender_age.age, name)).col1 as age,
+> max(struct(gender_age.age, name)).col2 as name
+> FROM employee
+> GROUP BY gender_age.gender;
++-------------------+-----+------+
+| gender_age.gender | age | name |
++-------------------+-----+------+
+| Female            | 57  | Lucy |
+| Male              | 35  | Will |
++-------------------+-----+------+
+2 rows selected (26.896 seconds)
+Although it still needs to use the GROUP BY clause, this job is more efficient than a regular GROUP BY or subquery, as it only triggers one job. 
+
+# The hive.map.aggr property controls aggregations in the map task. The default value for this setting is true, so Hive will do the first-level aggregation directly in the map task for better performance, but consume more memory. Turn it off if you run out of memory in the map phase.
