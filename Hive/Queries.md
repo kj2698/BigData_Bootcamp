@@ -702,3 +702,41 @@ Grouping set with four elements, including all combinations of columns:
       +---------+------------+---------+
       13 rows selected (24.916 seconds)
 ```
+
+# Rollup and Cube
+The ROLLUP statement enables a SELECT statement to calculate multiple levels of aggregations across a specified group of dimensions. The ROLLUP statement is a simple extension of the GROUP BY clause with high efficiency and minimal overhead for a query. Compared to GROUPING SETS, which creates specified levels of aggregations, ROLLUP creates n+1 levels of aggregations, where n is the number of grouping columns. First, it calculates the standard aggregate values specified in the GROUP BY clause. Then, it creates higher-level subtotals, moving from right to left through the list of combinations of grouping columns. For example, GROUP BY a,b,c WITH ROLLUP is equivalent to GROUP BY a,b,c GROUPING SETS ((a,b,c),(a,b),(a),()).
+
+The CUBE statement takes a specified set of grouping columns and creates aggregations for all of their possible combinations. If n columns are specified for CUBE, there will be 2n combinations of aggregations returned. For example, GROUP BY a,b,c WITH CUBE is equivalent to GROUP BY a,b,c GROUPING SETS ((a,b,c),(a,b),(b,c),(a,c),(a),(b),(c),()).
+
+The GROUPING__ID function works as an extension to distinguish entire rows from each other. It returns the decimal equivalent of the BIT vector for each column specified after GROUP BY. The returned decimal number is converted from a binary of ones and zeros, which represents whether the column is aggregated (0) in the row or not (1). On the other hand, the grouping(...) function also indicates whether a column in a GROUP BY clause is aggregated or not by returning the binary of 1 or 0 directly. In the following example, the order of columns starts from counting the nearest column (such as name) from GROUP BY. The first row in the result set indicates that none of the columns are being used in GROUP BY.
+
+Compare the following example with the last example in the GROUPING SETS section for a better understanding of GROUPING_ID and grouping(...):
+
+```
+SELECT 
+name, start_date, count(employee_id) as emp_id_cnt,
+GROUPING__ID,
+grouping(name) as gp_name, 
+grouping(start_date) as gp_sd
+FROM employee_hr 
+GROUP BY name, start_date 
+WITH CUBE ORDER BY name, start_date;
++---------+------------+------------+-----+---------+-------+
+| name    | start_date | emp_id_cnt | gid | gp_name | gp_sd |
++---------+------------+------------+-----+---------+-------+
+| NULL    | NULL       | 4          | 3   | 1       | 1     |
+| NULL    | 2010-01-03 | 1          | 2   | 1       | 0     |
+| NULL    | 2012-11-03 | 1          | 2   | 1       | 0     |
+| NULL    | 2013-10-02 | 1          | 2   | 1       | 0     |
+| NULL    | 2014-01-29 | 1          | 2   | 1       | 0     |
+| Lucy    | NULL       | 1          | 1   | 0       | 1     |
+| Lucy    | 2010-01-03 | 1          | 0   | 0       | 0     |
+| Michael | NULL       | 1          | 1   | 0       | 1     |
+| Michael | 2014-01-29 | 1          | 0   | 0       | 0     |
+| Steven  | NULL       | 1          | 1   | 0       | 1     |
+| Steven  | 2012-11-03 | 1          | 0   | 0       | 0     |
+| Will    | NULL       | 1          | 1   | 0       | 1     |
+| Will    | 2013-10-02 | 1          | 0   | 0       | 0     |
++---------+------------+------------+-----+---------+-------+
+13 rows selected (55.507 seconds)
+```
