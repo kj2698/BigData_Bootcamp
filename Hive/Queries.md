@@ -844,3 +844,48 @@ Here are some examples using window sort functions in HQL:
 +----------+----+
 3 rows selected (54.43 seconds)
 ```
+
+	# Window analytics functions
+Window analytics functions provide extended data analytics, such as getting lag, lead, last, or first rows in the ordered set. The most commonly used analytics functions are as follows:
+
+cume_dist: Computes the number of rows whose value is smaller than or equal to, the value of the total number of rows divided by the current row, such as (number of rows ≤ current row)/(total number of rows).
+
+lead: This function, lead(value_expr[,offset[,default]]), is used to return data from the next row. The number (offset) of rows to lead can optionally be specified, one is by default. The function returns [,default] or NULL when the default is not specified. In addition, the lead for the current row extends beyond the end of the window.
+
+lag: This function, lag(value_expr[,offset[,default]]), is used to access data from a previous row. The number (offset) of rows to lag can optionally be specified, one is by default. The function returns [,default] or NULL when the default is not specified. In addition, the lag for the current row extends beyond the end of the window.
+
+first_value: It returns the first result from an ordered set.
+
+last_value: It returns the last result from an ordered set. 
+Here are some examples using window analytics functions in HQL:
+```
+> SELECT 
+> name,
+> dept_num as deptno,
+> salary,
+> cume_dist() OVER (PARTITION BY dept_num ORDER BY salary) as cume,
+> lead(salary, 2) OVER (PARTITION BY dept_num ORDER BY salary) as lead,
+> lag(salary, 2, 0) OVER (PARTITION BY dept_num ORDER BY salary) as lag,
+> first_value(salary) OVER (PARTITION BY dept_num ORDER BY salary) as fval,
+> last_value(salary) OVER (PARTITION BY dept_num ORDER BY salary) as lval,
+> last_value(salary) OVER (PARTITION BY dept_num ORDER BY salary RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) as lval2
+> FROM employee_contract 
+> ORDER BY deptno, salary;
++--------+------+--------+------+------+-----+------+------+-------+
+| name   |deptno| salary | cume | lead | lag | fval |lvalue|lvalue2|
++--------+------+--------+------+------+-----+------+------+-------+
+| Will   | 1000 | 4000   | 0.4  | 5500 | 0   | 4000 | 4000 | 6400  |
+| Wendy  | 1000 | 4000   | 0.4  | 5000 | 0   | 4000 | 4000 | 6400  |
+| Michael| 1000 | 5000   | 0.6  | 6400 | 4000| 4000 | 5000 | 6400  |
+| Lucy   | 1000 | 5500   | 0.8  | NULL | 4000| 4000 | 5500 | 6400  |
+| Steven | 1000 | 6400   | 1.0  | NULL | 5000| 4000 | 6400 | 6400  |
+| Lily   | 1001 | 5000   | 0.33 | 6400 | 0   | 5000 | 5000 | 6400  |
+| Jess   | 1001 | 6000   | 0.67 | NULL | 0   | 5000 | 6000 | 6400  |
+| Mike   | 1001 | 6400   | 1.0  | NULL | 5000| 5000 | 6400 | 6400  |
+| Yun    | 1002 | 5500   | 0.33 | 8000 | 0   | 5500 | 5500 | 8000  |
+| Wei    | 1002 | 7000   | 0.67 | NULL | 0   | 5500 | 7000 | 8000  |
+| Richard| 1002 | 8000   | 1.0  | NULL | 5500| 5500 | 8000 | 8000  |
++--------+------+--------+------+------+-----+------+------+-------+
+11 rows selected (55.203 seconds)
+```
+# For last_value, the result (the lval column) is a little bit unexpected. This is because the default window clause (introduced in the next section) used is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, which, in the example, means the current row will always be the last value. Changing the windowing clause to RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING gives us the expected result (see the lval2 column).
