@@ -788,10 +788,15 @@ The regular aggregations are used as window functions:
 Window sort functions provide the sorting data information, such as row number and rank, within specific groups as part of the data returned. The most commonly used sort functions are as follows:
 
 row_number: Assigns a unique sequence number starting from 1 to each row, according to the partition and order specification.
+	
 rank: Ranks items in a group, such as finding the top N rows for specific conditions.
+	
 dense_rank: Similar to rank, but leaves no gaps in the ranking sequence when there are ties. For example, if we rank a match using dense_rank and have two players tied for second place, we would see that the two players were both in second place and that the next person is ranked third. However, the rank function would rank two people in second place, but the next person would be in fourth place.
+	
 percent_rank: Uses rank values rather than row counts in its numerator as (current rank - 1)/(total number of rows - 1). Therefore, it returns the percentage rank of a value relative to a group of values.
+	
 ntile: Divides an ordered dataset into a number of buckets and assigns an appropriate bucket number to each row. It can be used to divide rows into equal sets and assign a number to each row.
+	
 Here are some examples using window sort functions in HQL:
 ```
 > SELECT 
