@@ -976,4 +976,80 @@ In addition, windows can be defined in a separate window clause or referred to b
 ```
 If we omit the window expression clause entirely, the default window specification is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW. When both ORDER BY and WINDOW expression clauses are missing, the window specification defaults to ROW BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING.
 	
+# Sampling
+When the data volume is extra large, we may need to find a subset of data to speed up data analysis. This is sampling, a technique used to identify and analyze a subset of data in order to discover patterns and trends in the whole dataset. In HQL, there are three ways of sampling data: random sampling, bucket table sampling, and block sampling.
 
+# Random sampling
+Random sampling uses the rand() function and LIMIT keyword to get the sampling of data, as shown in the following example. The DISTRIBUTE and SORT keywords are used here to make sure the data is also randomly distributed among mappers and reducers efficiently. The ORDER BY rand() statement can also achieve the same purpose, but the performance is not good:
+```
+> SELECT name FROM employee_hr 
+> DISTRIBUTE BY rand() SORT BY rand() LIMIT 2;
++--------+
+| name   |
++--------+
+| Will   |
+| Steven |
++--------+
+2 rows selected (52.399 seconds)
+```
+
+# Bucket table sampling
+This is a special sampling method, optimized for bucket tables, as shown in the following example. The SELECT clause specifies the columns to sample data from. The rand() function can also be used when sampling entire rows. If the sample column is also the CLUSTERED BY column, the sample will be more efficient:
+```
+-- Sampling based on the whole row
+> SELECT name FROM employee_trans
+> TABLESAMPLE(BUCKET 1 OUT OF 2 ON rand()) a;
++--------+
+| name   |
++--------+
+| Steven |
++--------+
+1 row selected (0.129 seconds)
+
+-- Sampling based on the bucket column, which is efficient
+> SELECT name FROM employee_trans 
+> TABLESAMPLE(BUCKET 1 OUT OF 2 ON emp_id) a;
++---------+
+| name    |
++---------+
+| Lucy    |
+| Steven  |
+| Michael |
++---------+
+3 rows selected (0.136 seconds)
+```
+
+# Block sampling
+This type of sampling allows a query to randomly pick up n rows of data, n percentage of the data size, or n bytes of data. The sampling granularity is the HDFS block size. Refer to the following examples:
+```
+-- Sample by number of rows
+> SELECT name
+> FROM employee TABLESAMPLE(1 ROWS) a;
++----------+
+|   name   |
++----------+
+| Michael  |
++----------+
+1 rows selected (0.075 seconds)
+
+-- Sample by percentage of data size
+> SELECT name
+> FROM employee TABLESAMPLE(50 PERCENT) a;
++----------+
+|   name   |
++----------+
+| Michael  |
+| Will     |
++----------+
+2 rows selected (0.041 seconds)
+
+-- Sample by data size
+-- Support b/B, k/K, m/M, g/G
+> SELECT name FROM employee TABLESAMPLE(1B) a;
++----------+
+|   name   |
++----------+
+| Michael  |
++----------+
+1 rows selected (0.075 seconds)
+```
