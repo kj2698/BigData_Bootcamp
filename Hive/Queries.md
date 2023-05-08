@@ -740,3 +740,15 @@ WITH CUBE ORDER BY name, start_date;
 +---------+------------+------------+-----+---------+-------+
 13 rows selected (55.507 seconds)
 ```
+
+# Window Functions
+Function (arg1,..., argn) OVER ([PARTITION BY <...>] [ORDER BY <....>] [<window_expression>])
+
+Function (arg1,..., argn) can be any function in the following four categories:
+
+Aggregate Functions: Regular aggregate functions, such as sum(...), and max(...)
+Sort Functions: Functions for sorting data, such as rank(...), androw_number(...)
+Analytics Functions: Functions for statistics and comparisons, such as lead(...), lag(...), and first_value(...)
+The OVER [PARTITION BY <...>] clause is similar to the GROUP BY clause. It divides the rows into groups containing identical values in one or more partitions by columns. These logical groups are known as partitions, which is not the same term as used for partition tables. Omitting the PARTITION BY statement applies the operation to all the rows in the table.
+
+The [ORDER BY <....>] clause is the same as the regular ORDER BY clause. It makes sure the rows produced by the PARTITION BY clause are ordered by specifications, such as ascending or descending order.
