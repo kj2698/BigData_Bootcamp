@@ -889,3 +889,6 @@ Here are some examples using window analytics functions in HQL:
 11 rows selected (55.203 seconds)
 ```
 # For last_value, the result (the lval column) is a little bit unexpected. This is because the default window clause (introduced in the next section) used is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, which, in the example, means the current row will always be the last value. Changing the windowing clause to RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING gives us the expected result (see the lval2 column).
+	
+![image](https://user-images.githubusercontent.com/101991863/236902896-cdd0f54b-087d-4246-a78b-00725549247f.png)
+
