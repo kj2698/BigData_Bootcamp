@@ -890,5 +890,90 @@ Here are some examples using window analytics functions in HQL:
 ```
 # For last_value, the result (the lval column) is a little bit unexpected. This is because the default window clause (introduced in the next section) used is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, which, in the example, means the current row will always be the last value. Changing the windowing clause to RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING gives us the expected result (see the lval2 column).
 	
+# Window expression
+[<window_expression>] is used to further sub-partition the result and apply the window functions. There are two types of windows: Row Type and Range Type.
+
+According to the JIRA at https://issues.apache.org/jira/browse/HIVE-4797, the rank(...), ntile(...), dense_rank(...), cume_dist(...), percent_rank(...), lead(...), lag(...), and row_number(...) functions do not support being used with a window expression yet.
+
+For row type windows, the definition is in terms of row numbers before or after the current row. The general syntax of the row window clause is as follows:
+
+ROWS BETWEEN <start_expr> AND <end_expr>
+
+<start_expr> can be any one of the following:
+
+UNBOUNDED PRECEDING
+CURRENT ROW
+N PRECEDING or FOLLOWING
+<end_expr> can be any one of the following:
+
+UNBOUNDED FOLLOWING
+CURRENT ROW
+N PRECEDING or FOLLOWING
+	
 ![image](https://user-images.githubusercontent.com/101991863/236902896-cdd0f54b-087d-4246-a78b-00725549247f.png)
+	
+In addition, windows can be defined in a separate window clause or referred to by other windows, as follows:
+```
+> SELECT 
+> name, dept_num, salary,
+> max(salary) OVER w1 as win1,
+> max(salary) OVER w2 as win2,
+> max(salary) OVER w3 as win3
+> FROM employee_contract
+> WINDOW w1 as (
+> PARTITION BY dept_num ORDER BY name
+> ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+> ),
+> w2 as w3,
+> w3 as (
+> PARTITION BY dept_num ORDER BY name
+> ROWS BETWEEN 1 PRECEDING AND 2 FOLLOWING
+> );
++---------+----------+--------+------+------+------+
+| name    | dept_num | salary | win1 | win2 | win3 |
++---------+----------+--------+------+------+------+
+| Lucy    | 1000     | 5500   | 5500 | 6400 | 6400 |
+| Michael | 1000     | 5000   | 5500 | 6400 | 6400 |
+| Steven  | 1000     | 6400   | 6400 | 6400 | 6400 |
+| Wendy   | 1000     | 4000   | 6400 | 6400 | 6400 |
+| Will    | 1000     | 4000   | 6400 | 4000 | 4000 |
+| Jess    | 1001     | 6000   | 6000 | 6400 | 6400 |
+| Lily    | 1001     | 5000   | 6000 | 6400 | 6400 |
+| Mike    | 1001     | 6400   | 6400 | 6400 | 6400 |
+| Richard | 1002     | 8000   | 8000 | 8000 | 8000 |
+| Wei     | 1002     | 7000   | 8000 | 8000 | 8000 |
+| Yun     | 1002     | 5500   | 8000 | 7000 | 7000 |
++---------+----------+--------+------+------+------+
+11 rows selected (57.204 seconds)
+```
+
+# Compared to row type windows, which are in terms of rows, the range type windows are in terms of values in the window expression's specified range. For example, the max(salary) RANGE BETWEEN 500 PRECEDING AND 1000 FOLLOWING statement will calculate max(salary) within the partition by the distance from the current row’s value of - 500 to + 1000. If the current row's salary is 4,000, this max(salary) will include rows whose salaries range from 3,500 to 5,000 within each dept_num-specified partition:
+```
+> SELECT
+> dept_num, start_date, name, salary,
+> max(salary) OVER (PARTITION BY dept_num ORDER BY salary
+> RANGE BETWEEN 500 PRECEDING AND 1000 FOLLOWING) win1,
+> max(salary) OVER (PARTITION BY dept_num ORDER BY salary
+> RANGE BETWEEN 500 PRECEDING AND CURRENT ROW) win2
+> FROM employee_contract
+> order by dept_num, start_date;
++----------+------------+---------+--------+------+------+
+| dept_num | start_date | name    | salary | win1 | win2 |
++----------+------------+---------+--------+------+------+
+| 1000     | 2010-01-03 | Lucy    | 5500   | 6400 | 5500 |
+| 1000     | 2012-11-03 | Steven  | 6400   | 6400 | 6400 |
+| 1000     | 2013-10-02 | Will    | 4000   | 5000 | 4000 |
+| 1000     | 2014-01-29 | Michael | 5000   | 5500 | 5000 |
+| 1000     | 2014-10-02 | Wendy   | 4000   | 5000 | 4000 |
+| 1001     | 2013-11-03 | Mike    | 6400   | 6400 | 6400 |
+| 1001     | 2014-11-29 | Lily    | 5000   | 6000 | 5000 |
+| 1001     | 2014-12-02 | Jess    | 6000   | 6400 | 6000 |
+| 1002     | 2010-04-03 | Wei     | 7000   | 8000 | 7000 |
+| 1002     | 2013-09-01 | Richard | 8000   | 8000 | 8000 |
+| 1002     | 2014-01-29 | Yun     | 5500   | 5500 | 5500 |
++----------+------------+---------+--------+------+------+
+11 rows selected (60.784 seconds)
+```
+If we omit the window expression clause entirely, the default window specification is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW. When both ORDER BY and WINDOW expression clauses are missing, the window specification defaults to ROW BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING.
+	
 
