@@ -784,3 +784,58 @@ The regular aggregations are used as window functions:
       +---------+--------+--------+-----+-----+-------+-------+-------+
       11 rows selected (111.856 seconds)
 ```
+# Window sort functions
+Window sort functions provide the sorting data information, such as row number and rank, within specific groups as part of the data returned. The most commonly used sort functions are as follows:
+
+row_number: Assigns a unique sequence number starting from 1 to each row, according to the partition and order specification.
+rank: Ranks items in a group, such as finding the top N rows for specific conditions.
+dense_rank: Similar to rank, but leaves no gaps in the ranking sequence when there are ties. For example, if we rank a match using dense_rank and have two players tied for second place, we would see that the two players were both in second place and that the next person is ranked third. However, the rank function would rank two people in second place, but the next person would be in fourth place.
+percent_rank: Uses rank values rather than row counts in its numerator as (current rank - 1)/(total number of rows - 1). Therefore, it returns the percentage rank of a value relative to a group of values.
+ntile: Divides an ordered dataset into a number of buckets and assigns an appropriate bucket number to each row. It can be used to divide rows into equal sets and assign a number to each row.
+Here are some examples using window sort functions in HQL:
+```
+> SELECT 
+> name, 
+> dept_num as deptno, 
+> salary,
+> row_number() OVER () as rnum, -- sequence in orginal table
+> rank() OVER (PARTITION BY dept_num ORDER BY salary) as rk, 
+> dense_rank() OVER (PARTITION BY dept_num ORDER BY salary) as drk,
+> percent_rank() OVER(PARTITION BY dept_num ORDER BY salary) as prk,
+> ntile(4) OVER(PARTITION BY dept_num ORDER BY salary) as ntile
+> FROM employee_contract
+> ORDER BY deptno, name;
++---------+--------+--------+------+----+-----+------+-------+
+| name    | deptno | salary | rnum | rk | drk | prk  | ntile |
++---------+--------+--------+------+----+-----+------+-------+
+| Lucy    | 1000   | 5500   | 7    | 4  | 3   | 0.75 | 3     |
+| Michael | 1000   | 5000   | 11   | 3  | 2   | 0.5  | 2     |
+| Steven  | 1000   | 6400   | 8    | 5  | 4   | 1.0  | 4     |
+| Wendy   | 1000   | 4000   | 9    | 1  | 1   | 0.0  | 1     |
+| Will    | 1000   | 4000   | 10   | 1  | 1   | 0.0  | 1     |
+| Jess    | 1001   | 6000   | 5    | 2  | 2   | 0.5  | 2     |
+| Lily    | 1001   | 5000   | 6    | 1  | 1   | 0.0  | 1     |
+| Mike    | 1001   | 6400   | 4    | 3  | 3   | 1.0  | 3     |
+| Richard | 1002   | 8000   | 1    | 3  | 3   | 1.0  | 3     |
+| Wei     | 1002   | 7000   | 3    | 2  | 2   | 0.5  | 2     |
+| Yun     | 1002   | 5500   | 2    | 1  | 1   | 0.0  | 1     |
++---------+--------+--------+------+----+-----+------+-------+
+11 rows selected (80.052 seconds)
+```
+
+# Since Hive v2.1.0, we have been able to use aggregate functions in the OVER clause as follows:
+```
+> SELECT
+> dept_num,
+> rank() OVER (PARTITION BY dept_num ORDER BY sum(salary)) as rk
+> FROM employee_contract
+> GROUP BY dept_num;
++----------+----+
+| dept_num | rk |
++----------+----+
+| 1000     | 1  |
+| 1001     | 1  |
+| 1002     | 1  | 
++----------+----+
+3 rows selected (54.43 seconds)
+```
