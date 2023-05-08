@@ -752,3 +752,35 @@ Analytics Functions: Functions for statistics and comparisons, such as lead(...)
 The OVER [PARTITION BY <...>] clause is similar to the GROUP BY clause. It divides the rows into groups containing identical values in one or more partitions by columns. These logical groups are known as partitions, which is not the same term as used for partition tables. Omitting the PARTITION BY statement applies the operation to all the rows in the table.
 
 The [ORDER BY <....>] clause is the same as the regular ORDER BY clause. It makes sure the rows produced by the PARTITION BY clause are ordered by specifications, such as ascending or descending order.
+
+The regular aggregations are used as window functions:
+```
+      > SELECT 
+      > name, 
+      > dept_num as deptno, 
+      > salary,
+      > count(*) OVER (PARTITION BY dept_num) as cnt,
+      > count(distinct dept_num) OVER (PARTITION BY dept_num) as dcnt,
+      > sum(salary) OVER(PARTITION BY dept_num ORDER BY dept_num) as 
+      sum1,
+      > sum(salary) OVER(ORDER BY dept_num) as sum2,
+      > sum(salary) OVER(ORDER BY dept_num, name) as sum3
+      > FROM employee_contract
+      > ORDER BY deptno, name;
+      +---------+--------+--------+-----+-----+-------+-------+-------+
+      | name    | deptno | salary | cnt | dcnt| sum1  | sum2  | sum3  |
+      +---------+--------+--------+-----+-----+-------+-------+-------+
+      | Lucy    | 1000   | 5500   | 5   | 1   | 24900 | 24900 | 5500  |
+      | Michael | 1000   | 5000   | 5   | 1   | 24900 | 24900 | 10500 |
+      | Steven  | 1000   | 6400   | 5   | 1   | 24900 | 24900 | 16900 |
+      | Wendy   | 1000   | 4000   | 5   | 1   | 24900 | 24900 | 20900 |
+      | Will    | 1000   | 4000   | 5   | 1   | 24900 | 24900 | 24900 |
+      | Jess    | 1001   | 6000   | 3   | 1   | 17400 | 42300 | 30900 |
+      | Lily    | 1001   | 5000   | 3   | 1   | 17400 | 42300 | 35900 |
+      | Mike    | 1001   | 6400   | 3   | 1   | 17400 | 42300 | 42300 |
+      | Richard | 1002   | 8000   | 3   | 1   | 20500 | 62800 | 50300 |
+      | Wei     | 1002   | 7000   | 3   | 1   | 20500 | 62800 | 57300 |
+      | Yun     | 1002   | 5500   | 3   | 1   | 20500 | 62800 | 62800 |
+      +---------+--------+--------+-----+-----+-------+-------+-------+
+      11 rows selected (111.856 seconds)
+```
