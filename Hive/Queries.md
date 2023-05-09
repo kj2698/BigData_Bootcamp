@@ -1083,3 +1083,6 @@ so, if we do select * from csv_table, we dont see # its escaped.
 2       mansi   r,cg
 3       anil    au,bh
 ```
+# Limitations
+This SerDe (csv) treats all columns to be of type String. Even if you create a table with non-string column types using this SerDe, the DESCRIBE TABLE output would show string column type.
+The type information is retrieved from the SerDe.
