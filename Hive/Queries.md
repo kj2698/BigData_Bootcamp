@@ -1053,3 +1053,33 @@ This type of sampling allows a query to randomly pick up n rows of data, n perce
 +----------+
 1 rows selected (0.075 seconds)
 ```
+
+# Serde
+let say if I have a csv file with data as below:
+```
+1,kanha,"abkp,#cg"
+2,mansi,"r,#cg"
+3,anil,"au,#bh"
+```
+
+Create table command:
+```
+create table csv_table(
+id int,
+name char(10),
+addr string)
+row format serde 'org.apache.hadoop.hive.serde2.OpenCSVSerde'
+with serdeproperties(
+ "separatorChar" = ",",
+   "quoteChar" = "\"",
+   "escapeChar" = "#"
+) stored as textfile;
+```
+Here separator means column delimiter. quotechar means which character is used to enquote the values. escapechar means inside quotes which character I want to escape.
+In the above data I have # inside the quotes so I am specifying # inside escapeChar="#"
+so, if we do select * from csv_table, we dont see # its escaped.
+```
+1       kanha   abkp,cg
+2       mansi   r,cg
+3       anil    au,bh
+```
