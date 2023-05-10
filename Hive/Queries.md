@@ -1086,3 +1086,22 @@ so, if we do select * from csv_table, we dont see # its escaped.
 # Limitations
 This SerDe (csv) treats all columns to be of type String. Even if you create a table with non-string column types using this SerDe, the DESCRIBE TABLE output would show string column type.
 The type information is retrieved from the SerDe.
+
+# Loading JSON Data
+```
+{"name": "Amit", "id": 1, "skills": ["Hadoop", "Python"]}
+{"name": "sumit", "id": 2, "skills": ["Hadoop", "Hive"]}
+{"name": "Shashank", "id": 3, "skills": ["Airflow", "Python"]}
+```
+
+Create table command:
+```
+> create table t1(
+> name string,
+> id int,
+> skills Array<String>
+> )
+> row format serde 'org.apache.hive.hcatalog.data.JsonSerDe'
+> stored as textfile;
+```
+Here we dont need to specify and serde properties.
