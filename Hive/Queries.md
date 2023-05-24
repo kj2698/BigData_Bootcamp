@@ -1145,9 +1145,10 @@ hive> set hive.exec.dynamic.partition = true;
 hive> set hive.exec.dynamic.partition.mode = nonstrict;
 ```
 Once dynamic partitioning is enabled, we can create partitions for all unique values for any columns, say state of the state table, as follows:
-
+```
 hive> create table sales_part_state (id int, fname string, zip string, ip string, pid string) partitioned by (state string) row format delimited fields terminated by '\t';
 hive> Insert into sales_part_state partition(state) select id,fname,zip,ip,pid,state from sales;
+```
 It will create partitions for all unique values of state in the sales table. The HDFS structure for different partitions is as follows:
 
 ![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/632307bf-f371-4c52-b830-df4d742124b9)
