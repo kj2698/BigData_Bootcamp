@@ -1106,3 +1106,46 @@ Create table command:
 > stored as textfile;
 ```
 Here we dont need to specify and serde properties.
+	
+# Partitions
+Partitioning can be done in one of the following two ways:
+
+Static partitioning
+Dynamic partitioning
+	
+## Static partitioning
+In static partitioning, you need to manually insert data in different partitions of a table. Let's use a table partitioned on the states of India. For each state, you need to manually insert the data from the data source to a state partition in the partitioned table. So for 29 states, you need to write the equivalent number of Hive queries to insert data in each partition. Let's understand this using the following example.
+
+First, we create a nonpartitioned table, sales, which is the source of data for our partitioned table, and load data into it:
+
+CREATE TABLE sales (id int, fname string, state string, zip string, ip string, pid string) row format delimited fields terminated by '\t';
+LOAD DATA LOCAL INPATH '/opt/data/sample_10' INTO TABLE sales;
+If we query the table sales for a particular state, it would scan the entire data in sales.
+
+Now, let's create a partition table and insert data from sales in to different partitions:
+
+CREATE TABLE sales_part(id int, fname string, state string, zip string, ip string) partitioned by (pid string) row format delimited fields terminated by '\t';
+In static partitioning, you need to insert data into different partitions of the partitioned table as follows:
+
+Insert into sales_part partition (pid= 'PI_03') select id,fname,state,zip,ip from sales where pid= 'PI_03';
+Insert into sales_part partition (pid= 'PI_02') select id,fname,state,zip,ip from sales where pid= 'PI_02';
+Insert into sales_part partition (pid= 'PI_05') select id,fname,state,zip,ip from sales where pid= 'PI_05';
+If we check for the partitions in HDFS, we would find the directory structure as follows:
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/3acbc968-94ae-47c3-9f5f-721d26d9ef66)
+
+## Dynamic partitioning
+Let us look at a scenario where we have 50 product IDs and we need to partition data for all the unique product IDs available in the dataset. If we go for static partitioning, we need to run the INSERT INTO command for all 50 distinct product IDs. That is where it is better to go with dynamic partitioning. In this type, partitions would be created for all the unique values in the dataset for a given partition column.
+
+By default, Hive does not allow dynamic partitioning. We need to enable it by setting the following properties on the CLI or in hive-site.xml:
+
+hive> set hive.exec.dynamic.partition = true;
+hive> set hive.exec.dynamic.partition.mode = nonstrict;
+Once dynamic partitioning is enabled, we can create partitions for all unique values for any columns, say state of the state table, as follows:
+
+hive> create table sales_part_state (id int, fname string, zip string, ip string, pid string) partitioned by (state string) row format delimited fields terminated by '\t';
+hive> Insert into sales_part_state partition(state) select id,fname,zip,ip,pid,state from sales;
+It will create partitions for all unique values of state in the sales table. The HDFS structure for different partitions is as follows:
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/632307bf-f371-4c52-b830-df4d742124b9)
+
