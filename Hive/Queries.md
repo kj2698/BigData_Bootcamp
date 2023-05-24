@@ -1153,3 +1153,31 @@ It will create partitions for all unique values of state in the sales table. The
 
 ![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/632307bf-f371-4c52-b830-df4d742124b9)
 
+# Creating buckets in Hive
+In the scenario where we query on a unique values column of a dataset, partitioning is not a good fit. If we go with a partition on a column with high unique values like ID, it would create a large number of small datasets in HDFS and partition entries in the metastore, thus increasing the load on NameNode and the metastore service.
+
+To optimize queries on such a dataset, we group the data into a particular number of buckets and the data is divided into the maximum number of buckets.
+
+How to do it…
+Using the same sales dataset, if we need to optimize queries on a column with high unique column values such as ID, we create buckets on that column as follows:
+```
+create table sales_buck (id int, fname string, state string, zip string, ip string, pid string) clustered by (id) 
+into 50 buckets row format delimited fields terminated by '\t';
+```
+Here, we have defined 50 buckets for this table, which means that the complete dataset is divided and stored in 50 buckets based on the ID column value.
+
+By default, bucketing is disabled in Hive. You need to enable bucketing before loading data in a bucketed table by setting the following property:
+```
+set hive.enforce.bucketing=true;
+```
+Assuming you already have the sales table that we created in the Hive partitioning recipe, we would now load the data in sales_buck from the table sales as follows:
+```
+insert into table sales_buck select * from sales;
+```
+If you closely monitor the execution of MapReduce jobs running for this insert statement, you would see that 50 reducers produce 50 output files as buckets for this table, partitioned on ID:
+
+How to do it…
+If you have access to HDFS, you can check that 50 files are created in the warehouse directory of the sales_buck table, which would be by default /user/hive/warehouse/sales_buck/. If the location of the table is not known, you can check for the location by executing the describe formatted sales_buck; command on the Hive CLI.
+
+How to do it…
+Now, when the user queries the sales_buck table for an ID or a range of IDs, Hive knows which bucket to look in for a particular ID. The query engine would only scan that bucket and return the resultset.
