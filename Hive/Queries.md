@@ -1181,3 +1181,45 @@ If you have access to HDFS, you can check that 50 files are created in the wareh
 
 How to do it…
 Now, when the user queries the sales_buck table for an ID or a range of IDs, Hive knows which bucket to look in for a particular ID. The query engine would only scan that bucket and return the resultset.
+
+# Using a left semi join
+In this recipe, you will learn how to use a left semi join in Hive.
+
+The left semi join is used in place of the IN/EXISTS sub-query in Hive. In a traditional RDBMS, the IN and EXISTS clauses are widely used whereas in Hive, the left semi join is used as a replacement of the same.
+
+In the left semi join, the right-hand side table can only be used in the join clause but not in the WHERE or the SELECT clause.
+
+The general syntax of the left semi join is as follows:
+
+join_condition
+  | table_reference LEFT SEMI JOIN table_reference join_condition
+Where:
+
+table_reference: Is the table name or the joining table that is used in the join query. table_reference can also be a query alias.
+join_condition: join_condition: Is the join clause that will join two or more tables based on an equality condition. The AND keyword is used in case a join is required on more than two tables.
+How to do it…
+Run the following commands to create a left semi join in Hive:
+```
+SELECT a.* FROM Sales a LEFT SEMI JOIN Sales_orc b ON a.id = b.id;
+
+SELECT a.*, b.* FROM Sales a LEFT SEMI JOIN Sales_orc b ON a.id = b.id;
+
+SELECT a.* FROM Sales a LEFT SEMI JOIN Sales_orc b ON a.id = b.id WHERE b.id = 1;
+```
+## How it works…
+```
+The first statement returns all the rows from the Sales tables. This statement works exactly the same as mentioned next:
+
+SELECT a.* FROM Sales a WHERE a.id IN (SELECT b.id FROM Sales_orc b);
+```
+The output of both the queries is shown next:
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/f11ea0c5-77c4-42e8-87d8-fe41f3418140)
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/f6650fef-01ec-44df-a506-ef981b7b6a10)
+
+The second statement throws an error as FAILED: SemanticException [Error 10009]: Line 1:12 Invalid table alias 'b'. As mentioned earlier, in a left semi join, the right-hand side table cannot be used in a SELECT clause. The output of the query is shown next:
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/9a6c947e-deea-458b-86a0-b909cb66b97c)
+
+The third statement will also throw an error as FAILED: SemanticException [Error 10009]: Line 1:12 Invalid table alias 'b'. As mentioned earlier, in a left semi join, the right-hand side table cannot be used in a WHERE clause. The output of the query is shown next:
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/db886f29-e765-49d3-a270-9e7c4941d07e)
