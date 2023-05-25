@@ -1223,3 +1223,42 @@ The second statement throws an error as FAILED: SemanticException [Error 10009]:
 The third statement will also throw an error as FAILED: SemanticException [Error 10009]: Line 1:12 Invalid table alias 'b'. As mentioned earlier, in a left semi join, the right-hand side table cannot be used in a WHERE clause. The output of the query is shown next:
 
 ![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/db886f29-e765-49d3-a270-9e7c4941d07e)
+
+# Using a cross join
+In this recipe, you will learn how to use a cross join in Hive.
+
+Cross join, also known as Cartesian product, is a way of joining multiple tables in which all the rows or tuples from one table are paired with the rows and tuples from another table. For example, if the left-hand side table has 10 rows and the right-hand side table has 13 rows then the result set after joining the two tables will be 130 rows. That means all the rows from the left-hand side table (having 10 rows) are paired with all the tables from the right-hand side table (having 13 rows).
+
+If there is a WHERE clause in the SQL statement that includes a cross join, then first the cross join takes place and then the result set is filtered out with the help of the WHERE clause. This means cross joins are not an efficient and optimized way of joining the tables.
+
+The general syntax of a cross join is as follows:
+
+join_condition
+  | table_reference [CROSS] JOIN table_reference join_condition
+Where:
+
+table_reference: Is the table name or the joining table that is used in the join query. table_reference can also be a query alias.
+join_condition: join_condition: Is the join clause that will join two or more tables based on an equality condition. The AND keyword is used in case a join is required on more than two tables.
+How to do it…
+Cross joins can be implemented using the JOIN keyword or CROSS JOIN keyword. If the CROSS keyword is not specified then by default a cross join is applied.
+
+The following are examples to use cross joins in tables:
+```
+SELECT * FROM Sales JOIN Sales_orc;
+SELECT * FROM Sales JOIN Sales_orc WHERE Sales.id = 1;
+SELECT * FROM Sales CROSS JOIN Sales_orc;
+SELECT * FROM Sales a CROSS JOIN Sales_orc b JOIN Location c on a.id = c.id;
+```
+How it works…
+The first statement pairs all rows from one table with the rows of another table. The output of the query is shown next:
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/dbb0fb0d-e14a-4263-abe5-4ef8c3ad0745)
+
+
+The second statement takes as much time in execution as the one in the first example, even though the result set is filtered out with the help of the WHERE clause. This means that the cross join is processed first, then the WHERE clause. The output of the query is shown next:
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/40fb8edd-e6e5-4a08-85ae-83562de44da5)
+
+We can also use the CROSS keyword for CROSS joins. The third statement gives the same result as the one in the first example. The output of the query is shown next:
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/987b6c9a-749e-4969-90ed-4b4e297a0aec)
+
+We can also club multiple join clauses into a single statement as shown in the fourth statement. In this example, first the cross join is performed between the Sales and Sales_orc table and the result set is then joined with the Location table. The output of the query is shown next:
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/85c3c13c-e104-42c0-825a-ef608c8164f3)
