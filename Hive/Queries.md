@@ -1303,3 +1303,40 @@ MapJoin followed by union
 MapJoin followed by join
 MapJoin followed by MapJoin
 ```
+
+# Using a bucket map join
+In this recipe, you will learn how to use a bucket map join in Hive.
+
+A bucket map join is used when the tables are large and all the tables used in the join are bucketed on the join columns. In this type of join, one table should have buckets in multiples of the number of buckets in another table. For example, if one table has 2 buckets then the other table must have either 2 buckets or a multiple of 2 buckets (2, 4, 6, and so on). If the preceding condition is satisfied then the joining can be done at the mapper side only, otherwise a normal inner join is performed. This means that only the required buckets are fetched on the mapper side and not the complete table. That is, only the matching buckets of all small tables are replicated onto each mapper. Doing this, the efficiency of the query is improved drastically. In a bucket map join, data is not sorted.
+
+Hive does not support a bucket map join by default. The following property needs to be set to true for the query to work as a bucket map join:
+
+`set hive.optimize.bucketmapjoin = true`
+In this type of join, not only tables need to be bucketed but also data needs to be bucketed while inserting. For this, the following property needs to be set before inserting the data:
+
+`set hive.enforce.bucketing = true`
+The general syntax for a bucket map join is as follows:
+```
+SELECT /*+ MAPJOIN(table2) */ column1, column2, column3
+FROM table1 [alias_name1] JOIN table2 [alias_name2]
+ON table1 [alias_name1].key = table2 [alias_name2].key
+
+Where:
+
+table1: Is the bigger or larger table
+table2: Is the smaller table
+[alias_name1]: Is the alias name for table1
+[alias_name2]: Is the alias name for table2
+```
+
+How to do it…
+Follow these steps to use a bucket map join in Hive:
+```
+SELECT /*+ MAPJOIN(Sales_orc) */ a.*, b.* FROM Sales a JOIN Sales_orc b ON a.id = b.id;
+SELECT /*+ MAPJOIN(Sales_orc, Location) */ a.*, b.*, c.* FROM Sales a JOIN Sales_orc b ON a.id = b.id JOIN Location ON a.id = c.id;
+```
+How it works…
+In the first statement, `Sales_orc` has less data compared to the `Sales` table. The `Sales` table is having the buckets in multiples of the buckets for `Sales_orc`. Only the matching buckets are replicated onto each mapper.
+
+The second statement works in the same manner as the first one. The only difference is that in the preceding statement there is a join on more than two tables. The Sales_orc buckets and Location buckets are fetched or replicated onto the mapper of the Sales table, performing the joins at the mapper side only.
+
