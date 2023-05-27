@@ -1390,18 +1390,22 @@ If there is a need to perform a join on a column of a table that is appearing qu
 
 ## The following parameter needs to be set for a skew join:
 
-`set hive.optimize.skewjoin=true;`
-`set hive.skewjoin.key=100000;`
+```
+set hive.optimize.skewjoin=true;
+set hive.skewjoin.key=100000;
+```
 How to do it…
 Run the following command to use a bucket sort merge map join in Hive:
 
-`SELECT a.* FROM Sales a JOIN Sales_orc b ON a.id = b.id;`
+```SELECT a.* FROM Sales a JOIN Sales_orc b ON a.id = b.id;```
 How it works…
 Let us suppose that there are two tables, Sales and Sales_orc, as shown next:
 ![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/a1825dc5-430b-4ddb-802c-7997e5be407b)
+
 The Sales table
 	
 ![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/5741531d-49a2-4a13-8230-3d6fbff64037)
+
 The Sales_orc table
 
 There is a join that needs to be performed on the ID column that is present in both tables. The Sales table is having a column ID, which is highly skewed on 10. That is, the value 10 for the ID column is appearing in large numbers compared to other values for the same column. The Sales_orc table also having the value 10 for the ID column but not as much compared to the Sales table. Now, considering this, first the Sales_orc table is read and the rows with ID=10 are stored in the in-memory hash table. Once it is done, the set of mappers read the Sales table having ID=10 and the value from the Sales_orc table is compared and the partial output is computed at the mapper itself and no data needs to go to the reducer, improving performance drastically.
