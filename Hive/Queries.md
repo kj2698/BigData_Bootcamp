@@ -1262,3 +1262,44 @@ We can also use the CROSS keyword for CROSS joins. The third statement gives the
 
 We can also club multiple join clauses into a single statement as shown in the fourth statement. In this example, first the cross join is performed between the Sales and Sales_orc table and the result set is then joined with the Location table. The output of the query is shown next:
 ![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/85c3c13c-e104-42c0-825a-ef608c8164f3)
+
+# Using a map-side join
+In this recipe, you will learn how to use a map-side joins in Hive.
+
+While joining multiple tables in Hive, there comes a scenario where one of the tables is small in terms of rows while another is large. In order to produce the result in an efficient manner, Hive uses map-side joins. In map-side joins, the smaller table is cached in the memory while the large table is streamed through mappers. By doing so, Hive completes the joining at the mapper side only, thereby removing the reducer job. By doing so, performance is improved tremendously.
+
+How to do it…
+There are two ways of using map-side joins in Hive.
+
+One is to use the /*+ MAPJOIN(<table_name>)*/ hint just after the select keyword. table_name has to be the table that is smaller in size. This is the old way of using map-side joins.
+
+The other way of using a map-side join is to set the following property to true and then run a join query:
+
+`set hive.auto.convert.join=true;`
+Follow these steps to use a map-side join in Hive:
+```
+SELECT /*+ MAPJOIN(Sales_orc)*/ a.fname, b.lname FROM Sales a JOIN Sales_orc b ON a.id = b.id;
+SELECT a.* FROM Sales a JOIN Sales_orc b ON a.id = b.id and a.fname = b.fname;
+```
+How it works…
+Let us first run the set `hive.auto.convert.join=true;` command on the Hive shell. The output of this command is shown next:
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/e41b274d-d23c-4cac-beb3-fcdb5aab359e)
+
+The first statement uses the MAPJOIN hint to optimize the execution time of the query. In this example, the Sales_orc table is smaller compared to the Sales table. The output of the first statement is shown in the following screenshot. The highlighted statement shows that there are no reducers used while processing this query. The total time taken by this query is 40 seconds:
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/b96e9aff-b90a-48ab-8370-0e0cd4383a69)
+
+The second statement does not use the MAPJOIN hint. In this case, the property `hive.auto.convert.join` is set to true. In this, all the queries will be treated as MAPJOIN queries whereas the hint is used for a specific query:
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/8ea6ed2c-1b35-456e-aaf6-185b19d291e4)
+
+Now, let us run the `set hive.auto.convert.join=false;` command on the Hive shell and run the second statement. The output of the second command is shown next:
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/9270db63-6fb0-4c8b-8f1f-f4b700f3d9ef)
+```
+There are a few restrictions while using a map-side join. The following are not supported:
+
+Union followed by a MapJoin
+Lateral view followed by a MapJoin
+Reduce sink (group by/join/sort by/cluster by/distribute by) followed by MapJoin
+MapJoin followed by union
+MapJoin followed by join
+MapJoin followed by MapJoin
+```
