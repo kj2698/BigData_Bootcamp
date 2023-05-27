@@ -1380,3 +1380,30 @@ How it works…
 In the first statement, Sales_orc is having the same number of buckets as in the Sales table. The Sales table is having the buckets in multiples of the buckets for Sales_orc. Each mapper will read a bucket from the Sales table and the corresponding bucket from the Sales_orc table and will perform a bucket sort merge map join.
 
 The second statement works in the same manner as the first one. The only difference is that in the preceding statement there is a join on more than two tables.
+
+# Using a skew join
+In this recipe, you will learn how to use a skew join in Hive.
+
+A skew join is used when there is a table with skew data in the joining column. A skew table is a table that is having values that are present in large numbers in the table compared to other data. Skew data is stored in a separate file while the rest of the data is stored in a separate file.
+
+If there is a need to perform a join on a column of a table that is appearing quite often in the table, the data for that particular column will go to a single reducer, which will become a bottleneck while performing the join. To reduce this, a skew join is used.
+
+## The following parameter needs to be set for a skew join:
+
+`set hive.optimize.skewjoin=true;`
+`set hive.skewjoin.key=100000;`
+How to do it…
+Run the following command to use a bucket sort merge map join in Hive:
+
+`SELECT a.* FROM Sales a JOIN Sales_orc b ON a.id = b.id;`
+How it works…
+Let us suppose that there are two tables, Sales and Sales_orc, as shown next:
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/a1825dc5-430b-4ddb-802c-7997e5be407b)
+The Sales table
+	
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/5741531d-49a2-4a13-8230-3d6fbff64037)
+The Sales_orc table
+
+There is a join that needs to be performed on the ID column that is present in both tables. The Sales table is having a column ID, which is highly skewed on 10. That is, the value 10 for the ID column is appearing in large numbers compared to other values for the same column. The Sales_orc table also having the value 10 for the ID column but not as much compared to the Sales table. Now, considering this, first the Sales_orc table is read and the rows with ID=10 are stored in the in-memory hash table. Once it is done, the set of mappers read the Sales table having ID=10 and the value from the Sales_orc table is compared and the partial output is computed at the mapper itself and no data needs to go to the reducer, improving performance drastically.
+
+This way, we end up reading only Sales_orc twice. The skewed keys in Sales are only read and processed by the Mapper, and not sent to the reducer. The rest of the keys in Sales go through only a single Map/Reduce. The assumption is that Sales_orc has few rows with keys that are skewed in A. So these rows can be loaded into the memory.
