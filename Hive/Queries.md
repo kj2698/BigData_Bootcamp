@@ -1397,9 +1397,12 @@ set hive.skewjoin.key=100000;
 How to do it…
 Run the following command to use a bucket sort merge map join in Hive:
 
-```SELECT a.* FROM Sales a JOIN Sales_orc b ON a.id = b.id;```
+```
+SELECT a.* FROM Sales a JOIN Sales_orc b ON a.id = b.id;
+```
 How it works…
 Let us suppose that there are two tables, Sales and Sales_orc, as shown next:
+	
 ![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/a1825dc5-430b-4ddb-802c-7997e5be407b)
 
 The Sales table
