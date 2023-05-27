@@ -1340,3 +1340,43 @@ In the first statement, `Sales_orc` has less data compared to the `Sales` table.
 
 The second statement works in the same manner as the first one. The only difference is that in the preceding statement there is a join on more than two tables. The Sales_orc buckets and Location buckets are fetched or replicated onto the mapper of the Sales table, performing the joins at the mapper side only.
 
+# Using a bucket sort merge map join
+In this recipe, you will learn how to use a bucket sort merge map join in Hive.
+
+A bucket sort merge map join is an advanced version of a bucket map join. If the data in the tables is sorted and bucketed on the join columns at the same time then a bucket sort merge map join comes into the picture. In this type of join, all the tables must have an equal number of buckets as each mapper will read a bucket from each table and will perform a bucket sort merge map join.
+
+It is mandatory for the data to be sorted in this join condition. The following parameter needs to be set to true for sorting the data or data can be sorted manually:
+
+`Set hive.enforce.sorting = true;`
+NOTE
+If data in the buckets is not sorted then there is a possibility that a wrong result or output is generated as Hive does not check whether the buckets are sorted or not.
+
+The following parameters need to be set for:
+```
+set hive.input.format = org.apache.hadoop.hive.ql.io.BucketizedHiveInputFormat;
+set hive.optimize.bucketmapjoin = true;
+set hive.optimize.bucketmapjoin.sortedmerge = true;
+```
+The general syntax for a bucket map join is as follows:
+```
+SELECT /*+ MAPJOIN(table2) */ column1, column2, column3…
+FROM table1 [alias_name1] JOIN table2 [alias_name2] 
+ON table1 [alias_name1].key = table2 [alias_name2].key
+Where:
+
+table1: Is the bigger or larger table
+table2: Is the smaller table
+[alias_name1]: Is the alias name for table1
+[alias_name2]: Is the alias name for table2
+```
+
+How to do it…
+Follow these steps to use a bucket sort merge map join in Hive:
+```
+SELECT /*+ MAPJOIN(Sales_orc) */ a.*, b.* FROM Sales a JOIN Sales_orc b ON a.id = b.id;
+SELECT /*+ MAPJOIN(Sales_orc, Location) */ a.*, b.*, c.* FROM Sales a JOIN Sales_orc b ON a.id = b.id JOIN Location ON a.id = c.id;
+```
+How it works…
+In the first statement, Sales_orc is having the same number of buckets as in the Sales table. The Sales table is having the buckets in multiples of the buckets for Sales_orc. Each mapper will read a bucket from the Sales table and the corresponding bucket from the Sales_orc table and will perform a bucket sort merge map join.
+
+The second statement works in the same manner as the first one. The only difference is that in the preceding statement there is a join on more than two tables.
