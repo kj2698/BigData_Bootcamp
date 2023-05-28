@@ -1424,3 +1424,128 @@ This way, we end up reading only Sales_orc twice. The skewed keys in Sales are o
 ## You can read more about Hive string functions at https://cwiki.apache.org/confluence/display/Hive/LanguageManual+UDF#LanguageManualUDF-StringFunctions.
 
 ## You can read more about Hive's built-in aggregate functions at https://cwiki.apache.org/confluence/display/Hive/LanguageManual+UDF#LanguageManualUDF-Built-inAggregateFunctions%28UDAF%29.
+
+# Using the built-in User Defined Table Function (UDTF)
+Normal functions take one row as input and provide one row as transformed output. On the other side, built-in table-generating functions take one row as input and produce multiple output rows.
+
+How to do it…
+The built-in table-generating functions could be used directly in the query. The following are some examples of the table-generating functions available in Hive:
+
+Function Name
+
+Return Type
+
+Description
+
+explode(ARRAY)
+
+N rows
+
+It will return n of rows where n is the size of an array. This function represents each element of an array as a row.
+
+explode(MAP)
+
+N rows
+
+It will return n number of rows where n is the size of a map. This function represents each key-value element of the map as a row containing two columns: one for key and another for value.
+
+inline(ARRAY<STRUCT[,STRUCT]>)
+
+ 	
+It is used to explode an array of struct elements into a table.
+
+json_tuple(jsonStr, k1, k2, ...)
+
+tuple
+
+It is used to extract a set of keys from a JSON string. This function is more efficient than get_json_object to retrieve more than one keys from a JSON string using a single function.
+
+parse_url_tuple(url, p1, p2, ...)
+
+tuple
+
+It is used to extract multiple parts of a URL at once. Supported values for url parts are AUTHORITY, FILE, HOST, PATH, PROTOCOL, QUERY, REF, and USERINFO.
+
+The value of a particular key in QUERY can be extracted by specifying QUERY:<KEY-NAME>.
+
+posexplode(ARRAY)
+
+N rows
+
+This function is similar to the explode function but it also includes elements position in output.
+
+stack(INT n, v_1, v_2, ..., v_k)
+
+N rows
+
+This function breaks up the specified k values into n rows, where k is the number of values passed to this function. Each row will contain k/n columns.
+
+How it works…
+The following are the UDTF functions:
+
+EXPLODE: This function takes an array or map as input and generates the output with n rows:
+To understand the behavior of the explode function, let's create a table with two columns: one is city with the data type STRING and the other is pins with the data type ARRAY<INT>.
+CREATE TABLE table_with_array_datatype (city STRING, pins ARRAY<INT>) ROW FORMAT DELIMITED FIELDS TERMINATED BY '\t' collection items terminated by ',';
+Now, load some sample data into a table. The data in the table will look as follows:
+City
+
+Pins
+
+Noida
+
+[201301,201303,201307]
+
+Delhi
+
+[110001,110002,110003]
+
+Now, run the following query to explode the data of array elements:
+SELECT explode(pins) AS pin_code FROM table_with_array_datatype;
+It will return the following response:
+pin_code
+
+201301
+
+201303
+
+201307
+
+110001
+
+110002
+
+110003
+
+Now, let's see the behavior of the explode function with the map data type:
+SELECT explode(map_field) AS (mapKey, mapValue) FROM sampleTable;
+POSEXPLODE: This function is the same as the explode function but instead of returning just elements it will return the element as well as their position in the array:
+Let's use the same data used in the explode example, that is, table_with_array_datatype with two columns: city and pins:
+SELECT posexplode(pins) AS position, pin_code FROM table_with_array_datatype;
+The preceding command will return the following:
+position
+
+pin_code
+
+1
+
+201301
+
+2
+
+201303
+
+3
+
+201307
+
+1
+
+110001
+
+2
+
+110002
+
+3
+
+110003
