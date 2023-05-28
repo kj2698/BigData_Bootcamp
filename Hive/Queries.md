@@ -1510,3 +1510,53 @@ position	pin_code
 
 3	110003
 ```
+
+# Optimizations to reduce the number of map
+In this recipe, you will learn how to reduce the number of mappers in Hive.
+
+Getting ready
+The number of mappers that is used in a map reduce job depends heavily on the input split. The number of mappers is directly proportional to the number of HDFS blocks, that is, the total number of blocks for the input files. Input split is a logical concept that is used to control the number of mappers. If there is no size defined for an input split in map reduce job, then the number of mappers will be equal to the number of HDFS blocks.
+
+However, if you have defined a particular size for an input split, then the number of mappers will be equal to the number of input splits in the MapReduce job and not to the number of HDFS blocks for that MapReduce job.
+
+Let's suppose that there is a file of 150 MB, and it is broken down into two parts. One part is equal to 128 MB, and the other part is equal to 22 MB. Now consider that the block configuration of HDFS block by default is 128 MB. So the number of blocks occupied by this file is going to be 2. In this case, the number of mappers is going to be equal to the number of blocks, which is 2 if there is no split size defined for the map reduce job to process this file.
+
+Now suppose that you have specified the input split size to be 150 MB. Now the number of splits is going to be 1, whereas number of blocks will be 2. In this case, the number of mappers is going to be 1 as the number of mappers is directly proportional to the number of splits defined for the map reduce job. Split size can be defined by the user and altered according to the business requirement.
+
+Now suppose that you have further modified the input split size to 50 MB. Now for a file of 150 MB, the number of mappers is going to be 3, which is equivalent to the number of splits for that file.
+
+How to do it…
+The number of mappers used in a query plays a very important role in the performance of the query. You can increase or decrease the number of mappers required for a particular Hive query. The following two parameters can increase or decrease the number of mappers to some extent:
+
+`mapreduce.input.fileinputformat.split.maxsize`
+
+`mapreduce.input.fileinputformat.split.minsize`
+The preceding two parameters are for the newer version of Hive. Their equivalent names in the earlier versions are as follows:
+
+mapred.max.split.size
+mapred.min.split.size
+Suppose that there is a text file of size 10,000 bytes. If you want to limit the number of mappers, then you can set the earlier-mentioned parameters, as follows:
+
+How to do it…
+Limiting mappers to One
+
+There is going to be one mapper for the MapReduce job if the parameter size is set to 10,000, as in the preceding screenshot.
+
+However, there are going to be two mappers if the properties are set as shown in the following screenshot:
+
+How to do it…
+Limiting mappers to Two
+
+The following parameters can be set to reduce number of mappers for a MapReduce job:
+
+set hive.merge.mapfiles=true;
+The property hive.merge.mapfiles if set to true, will merge all the small files once the map job is completed:
+
+set hive.input.format= org.apache.hadoop.hive.ql.io.CombineHiveInputFormat;
+set mapreduce.job.maps = XX;
+There is one more property, hive.input.format, that can be used to reduce the number of mappers as well. If this property is set to org.apache.hadoop.hive.ql.io.CombineHiveInputFormat, which is the default value as well, then Hive will combine all files that are smaller in size than the limit specified in the parameter mapreduce.input.fileinputformat.split.minsize to a single file reducing the number of mappers. However, there is also one limitation in this technique. If the small-sized files are present at a different node on a different machine, Hive will not be able to combine all those files into a single file. Hence, the number of mappers will not be reduced.
+
+In the earlier version of Hive, the hive.input.format was set to org.apache.hadoop.hive.ql.io.HiveInputFormat, which has been deprecated now. With the newer version of Hive, the following the value should be set:
+
+hive.input.format = org.apache.hadoop.hive.ql.io.CombineHiveInputFormat;
+The third parameter shows that you can manually set the number of mappers for a particular Hive query. However, this parameter is ignored if the value of mapreduce.jobtracker.address is set to local. This means that all the jobs will run in-process as a single MapReduce task.
