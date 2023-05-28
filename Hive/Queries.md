@@ -1422,3 +1422,5 @@ This way, we end up reading only Sales_orc twice. The skewed keys in Sales are o
 ## Hive supports all the standards date formats. You can check the various date formats at https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html.
 
 ## You can read more about Hive string functions at https://cwiki.apache.org/confluence/display/Hive/LanguageManual+UDF#LanguageManualUDF-StringFunctions.
+
+## You can read more about Hive's built-in aggregate functions at https://cwiki.apache.org/confluence/display/Hive/LanguageManual+UDF#LanguageManualUDF-Built-inAggregateFunctions%28UDAF%29.
