@@ -1414,3 +1414,11 @@ The Sales_orc table
 There is a join that needs to be performed on the ID column that is present in both tables. The Sales table is having a column ID, which is highly skewed on 10. That is, the value 10 for the ID column is appearing in large numbers compared to other values for the same column. The Sales_orc table also having the value 10 for the ID column but not as much compared to the Sales table. Now, considering this, first the Sales_orc table is read and the rows with ID=10 are stored in the in-memory hash table. Once it is done, the set of mappers read the Sales table having ID=10 and the value from the Sales_orc table is compared and the partial output is computed at the mapper itself and no data needs to go to the reducer, improving performance drastically.
 
 This way, we end up reading only Sales_orc twice. The skewed keys in Sales are only read and processed by the Mapper, and not sent to the reducer. The rest of the keys in Sales go through only a single Map/Reduce. The assumption is that Sales_orc has few rows with keys that are skewed in A. So these rows can be loaded into the memory.
+
+# Functions in Hive:
+
+## You can read more about Hive mathematical functions at https://cwiki.apache.org/confluence/display/Hive/LanguageManual+UDF#LanguageManualUDF-MathematicalFunctions.
+
+## Hive supports all the standards date formats. You can check the various date formats at https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html.
+
+## You can read more about Hive string functions at https://cwiki.apache.org/confluence/display/Hive/LanguageManual+UDF#LanguageManualUDF-StringFunctions.
