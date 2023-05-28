@@ -1429,8 +1429,9 @@ This way, we end up reading only Sales_orc twice. The skewed keys in Sales are o
 Normal functions take one row as input and provide one row as transformed output. On the other side, built-in table-generating functions take one row as input and produce multiple output rows.
 
 How to do it…
-The built-in table-generating functions could be used directly in the query. The following are some examples of the table-generating functions available in Hive:
+## The built-in table-generating functions could be used directly in the query. The following are some examples of the table-generating functions available in Hive:
 
+```
 Function Name                     Return Type             Description
                                   
 explode(ARRAY)                    N rows                  It will return n of rows where n is the size of an array. This function represents each element of an array as a row.
@@ -1448,6 +1449,7 @@ posexplode(ARRAY)                   N rows                This function is simil
 
 stack(INT n, v_1, v_2, ..., v_k)    N rows                This function breaks up the specified k values into n rows, where k is the number of values passed to this function. Each row will contain k/n columns.
 
+```
 How it works…
 The following are the UDTF functions:
 
