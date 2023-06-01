@@ -21,5 +21,8 @@ on t1.n%t2.n=0 and t1.n<>t2.n) q WHERE n2 is NULL;
 
 ```
 with recursive cte1 as
-
+(select 1 as n
+UNION
+select n+1 from cte1 where n+1<6)
+select repeat('* ',n) from cte1;
 ```
