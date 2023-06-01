@@ -9,3 +9,17 @@ select distinct n1 from
 left join cte1 t2
 on t1.n%t2.n=0 and t1.n<>t2.n) q WHERE n2 is NULL;
 ```
+
+# write a query to print the pattern
+```
+*
+* *
+* * *
+* * * *
+* * * * *
+```
+
+```
+with recursive cte1 as
+
+```
