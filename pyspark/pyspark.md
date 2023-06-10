@@ -46,3 +46,40 @@ Now that you have created your RDD (myRDD), we will use the take() method to ret
 
 # Reading data from files
 ![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/e1fc36fd-2d2e-4ac5-a2de-c6dfd867d037)
+
+we will be reading a tab-delimited (or comma-delimited) file, so please ensure that you have a text (or CSV) file available. For your convenience, you can download the airport-codes-na.txt and departuredelays.csv files from https://github.com/drabastomek/learningPySpark/tree/master/Chapter03/flight-data. Ensure your local Spark cluster can access this file (for example, ~/data/flights/airport-codes-na.txt).
+
+Once you start the PySpark shell via the bash terminal (or you can run the same query within Jupyter notebook), execute the following query:
+```
+myRDD = (
+    sc
+    .textFile(
+        '~/data/flights/airport-codes-na.txt'
+        , minPartitions=4
+        , use_unicode=True
+    ).map(lambda element: element.split("\t"))
+)
+```
+
+When running the query:
+
+`myRDD.take(5)`
+
+The resulting output is:
+
+`Out[22]:  [[u'City', u'State', u'Country', u'IATA'], [u'Abbotsford', u'BC', u'Canada', u'YXX'], [u'Aberdeen', u'SD', u'USA', u'ABR'], [u'Abilene', u'TX', u'USA', u'ABI'], [u'Akron', u'OH', u'USA', u'CAK']]`
+
+Diving in a little deeper, let's determine the number of rows in this RDD. Note that more information on RDD actions such as count() is included in subsequent recipes:
+```
+myRDD.count()
+
+# Output
+# Out[37]: 527
+```
+Also, let's find out the number of partitions that support this RDD:
+```
+myRDD.getNumPartitions()
+
+# Output
+# Out[33]: 4
+```
