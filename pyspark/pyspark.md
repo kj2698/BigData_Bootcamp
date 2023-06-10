@@ -128,3 +128,75 @@ Putting the sc.textFile() and map() functions together allows us to read the tex
 ```
 Out[22]:  [[u'City', u'State', u'Country', u'IATA'], [u'Abbotsford', u'BC', u'Canada', u'YXX'], [u'Aberdeen', u'SD', u'USA', u'ABR'], [u'Abilene', u'TX', u'USA', u'ABI'], [u'Akron', u'OH', u'USA', u'CAK']]
 ```
+
+# Partitions and performance
+Earlier in this recipe, if we had run sc.textFile() without specifying minPartitions for this dataset, we would only have two partitions:
+```
+myRDD = (
+    sc
+    .textFile('/databricks-datasets/flights/airport-codes-na.txt')
+    .map(lambda element: element.split("\t"))
+)
+
+myRDD.getNumPartitions()
+
+# Output
+Out[2]: 2
+```
+But as noted, if the minPartitions flag is specified, then you would get the specified four partitions (or more):
+```
+myRDD = (
+    sc
+    .textFile(
+        '/databricks-datasets/flights/airport-codes-na.txt'
+        , minPartitions=4
+    ).map(lambda element: element.split("\t"))
+)
+
+myRDD.getNumPartitions()
+
+# Output
+Out[6]: 4
+```
+A key aspect of partitions for your RDD is that the more partitions you have, the higher the parallelism. Potentially, having more partitions will improve your query performance. For this portion of the recipe, let's use a slightly larger file, departuredelays.csv: 
+```
+# Read the `departuredelays.csv` file and count number of rows
+myRDD = (
+    sc
+    .textFile('/data/flights/departuredelays.csv')
+    .map(lambda element: element.split(","))
+)
+
+myRDD.count()
+
+# Output Duration: 3.33s
+Out[17]: 1391579
+
+# Get the number of partitions
+myRDD.getNumPartitions()
+
+# Output:
+Out[20]: 2
+```
+As noted in the preceding code snippet, by default, Spark will create two partitions and take 3.33 seconds (on my small cluster) to count the 1.39 million rows in the departure delays CSV file.
+
+Executing the same command, but also specifying minPartitions (in this case, eight partitions), you will notice that the count() method completed in 2.96 seconds (instead of 3.33 seconds with eight partitions). Note that these values may be different based on your machine's configuration, but the key takeaway is that modifying the number of partitions may result in faster performance due to parallelization. Check out the following code:
+```
+# Read the `departuredelays.csv` file and count number of rows
+myRDD = (
+    sc
+    .textFile('/data/flights/departuredelays.csv', minPartitions=8)
+    .map(lambda element: element.split(","))
+)
+
+myRDD.count()
+
+# Output Duration: 2.96s
+Out[17]: 1391579
+
+# Get the number of partitions
+myRDD.getNumPartitions()
+
+# Output:
+Out[20]: 8
+```
