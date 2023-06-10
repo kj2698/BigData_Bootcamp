@@ -205,3 +205,47 @@ Out[20]: 8
 As noted in preceding sections, there are two types of operation that can be used to shape data in an RDD: `transformations` and `actions`. A transformation, as the name suggests, transforms one RDD into another. In other words, it takes an existing RDD and transforms it into one or more output RDDs. In the preceding recipes, we had used a map() function, which is an example of a transformation to split the data by its tab-delimiter.
 
 Transformations are lazy (unlike actions). They only get executed when an action is called on an RDD. For example, calling the count() function is an action; more information is available in the following section on actions.
+
+# Getting ready
+This recipe will be reading a tab-delimited (or comma-delimited) file, so please ensure that you have a text (or CSV) file available. For your convenience, you can download the airport-codes-na.txt and departuredelays.csv files from https://github.com/drabastomek/learningPySpark/tree/master/Chapter03/flight-data. Ensure your local Spark cluster can access this file (for example, ~/data/flights/airport-codes-na.txt).
+
+If you are running Databricks, the same file is already included in the /databricks-datasets folder; the command is 
+
+myRDD = sc.textFile('/databricks-datasets/flights/airport-codes-na.txt').map(lambda line: line.split("\t"))
+
+Many of the transformations in the next section will use the RDDs airports or flights; let's set them up using this code snippet:
+```
+# Setup the RDD: airports
+airports = (
+    sc
+    .textFile('~/data/flights/airport-codes-na.txt')
+    .map(lambda element: element.split("\t"))
+)
+
+airports.take(5)
+
+# Output
+Out[11]:  
+[[u'City', u'State', u'Country', u'IATA'], 
+ [u'Abbotsford', u'BC', u'Canada', u'YXX'], 
+ [u'Aberdeen', u'SD', u'USA', u'ABR'], 
+ [u'Abilene', u'TX', u'USA', u'ABI'], 
+ [u'Akron', u'OH', u'USA', u'CAK']]
+```
+```
+# Setup the RDD: flights
+flights = (
+    sc
+    .textFile('/databricks-datasets/flights/departuredelays.csv')
+    .map(lambda element: element.split(","))
+)
+
+flights.take(5)
+
+# Output
+[[u'date', u'delay', u'distance', u'origin', u'destination'],  
+ [u'01011245', u'6', u'602', u'ABE', u'ATL'],  
+ [u'01020600', u'-8', u'369', u'ABE', u'DTW'],  
+ [u'01021245', u'-2', u'602', u'ABE', u'ATL'],  
+ [u'01020605', u'-4', u'602', u'ABE', u'ATL']]
+ ```
