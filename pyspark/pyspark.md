@@ -83,3 +83,30 @@ myRDD.getNumPartitions()
 # Output
 # Out[33]: 4
 ```
+
+The first code snippet to read the file and return values via take can be broken down into its two components: sc.textFile() and map().
+
+# .textFile(...) method
+To read the file, we are using SparkContext's textFile() method via this command:
+```
+(
+    sc
+    .textFile(
+        '~/data/flights/airport-codes-na.txt'
+        , minPartitions=4
+        , use_unicode=True
+    )
+)
+```
+Only the first parameter is required, which indicates the location of the text file as per ~/data/flights/airport-codes-na.txt. There are two optional parameters as well:
+
+minPartitions: Indicates the minimum number of partitions that make up the RDD. The Spark engine can often determine the best number of partitions based on the file size, but you may want to change the number of partitions for performance reasons and, hence, the ability to specify the minimum number.
+
+use_unicode: Engage this parameter if you are processing Unicode data.
+Note that if you were to execute this statement without the subsequent map() function, the resulting RDD would not reference the tab-delimiter—basically a list of strings that is:
+```
+myRDD = sc.textFile('~/data/flights/airport-codes-na.txt')
+myRDD.take(5)
+
+# Out[35]:  [u'City\tState\tCountry\tIATA', u'Abbotsford\tBC\tCanada\tYXX', u'Aberdeen\tSD\tUSA\tABR', u'Abilene\tTX\tUSA\tABI', u'Akron\tOH\tUSA\tCAK']
+```
