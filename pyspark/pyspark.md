@@ -347,3 +347,70 @@ This will return the following output:
 # Output
 [u'Canada', u'USA', u'Country']
 ```
+
+# .sample(...) transformation
+The sample(withReplacement, fraction, seed) transformation samples a fraction of the data, with or without replacement (the withReplacement parameter), based on a random seed. 
+
+Look at the following code snippet:
+```
+# Provide a sample based on 0.001% the
+# flights RDD data specific to the fourth
+# column (origin city of flight)
+# without replacement (False) using random
+# seed of 123 
+(
+    flights
+    .map(lambda c: c[3])
+    .sample(False, 0.001, 123)
+    .take(5)
+)
+We can expect the following result:
+
+# Output
+[u'ABQ', u'AEX', u'AGS', u'ANC', u'ATL']
+```
+
+# .join(...) transformation
+The join(RDD') transformation returns an RDD of (key, (val_left, val_right)) when calling RDD (key, val_left) and RDD (key, val_right). Outer joins are supported through left outer join, right outer join, and full outer join. 
+
+Look at the following code snippet:
+```
+# Flights data
+#  e.g. (u'JFK', u'01010900')
+flt = flights.map(lambda c: (c[3], c[0]))
+
+# Airports data
+# e.g. (u'JFK', u'NY')
+air = airports.map(lambda c: (c[3], c[1]))
+
+# Execute inner join between RDDs
+flt.join(air).take(5)
+This will give you the following result:
+
+# Output
+[(u'JFK', (u'01010900', u'NY')),  
+ (u'JFK', (u'01011200', u'NY')),  
+ (u'JFK', (u'01011900', u'NY')),  
+ (u'JFK', (u'01011700', u'NY')),  
+ (u'JFK', (u'01010800', u'NY'))]
+```
+
+# .repartition(...) transformation
+The repartition(n) transformation repartitions the RDD into n partitions by randomly reshuffling and uniformly distributing data across the network. As noted in the preceding recipes, this can improve performance by running more parallel threads concurrently. Here's a code snippet that does precisely that:
+```
+# The flights RDD originally generated has 2 partitions 
+flights.getNumPartitions()
+
+# Output
+2 
+
+# Let's re-partition this to 8 so we can have 8 
+# partitions
+flights2 = flights.repartition(8)
+
+# Checking the number of partitions for the flights2 RDD
+flights2.getNumPartitions()
+
+# Output
+8
+```
