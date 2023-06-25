@@ -262,3 +262,21 @@ Getting the distinct values: distinct()
 Getting the number of partitions: getNumPartitions()
 Determining the size of your partitions (that is, the number of elements within each partition): mapPartitionsWithIndex()
 ```
+
+# .map(...) transformation
+The map(f) transformation returns a new RDD formed by passing each element through a function, f.
+
+Look at the following code snippet:
+```
+# Use map() to extract out the first two columns
+airports.map(lambda c: (c[0], c[1])).take(5)
+This will produce the following output:
+
+# Output
+[(u'City', u'State'),  
+ (u'Abbotsford', u'BC'),  
+ (u'Aberdeen', u'SD'),
+
+ (u'Abilene', u'TX'),  
+ (u'Akron', u'OH')] 
+```
