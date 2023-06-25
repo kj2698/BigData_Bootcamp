@@ -280,3 +280,24 @@ This will produce the following output:
  (u'Abilene', u'TX'),  
  (u'Akron', u'OH')] 
 ```
+
+# .filter(...) transformation
+The filter(f)  transformation returns a new RDD based on selecting elements for which the f function returns true. Therefore, look at the following code snippet:
+
+## User filter() to filter where second column == "WA"
+```
+(
+    airports
+    .map(lambda c: (c[0], c[1]))
+    .filter(lambda c: c[1] == "WA")
+    .take(5)
+)
+This will produce the following output:
+
+# Output
+[(u'Bellingham', u'WA'),
+ (u'Moses Lake', u'WA'),  
+ (u'Pasco', u'WA'),  
+ (u'Pullman', u'WA'),  
+ (u'Seattle', u'WA')]
+```
