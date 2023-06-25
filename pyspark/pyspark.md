@@ -249,3 +249,16 @@ flights.take(5)
  [u'01021245', u'-2', u'602', u'ABE', u'ATL'],  
  [u'01020605', u'-4', u'602', u'ABE', u'ATL']]
  ```
+
+# How to do it...
+In this section, we list common Apache Spark RDD transformations and code snippets. A more complete list can be found at https://spark.apache.org/docs/latest/rdd-programming-guide.html#transformations, https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.RDD and https://training.databricks.com/visualapi.pdf.
+
+The transformations include the following common tasks:
+```
+Removing the header line from your text file: zipWithIndex()
+Selecting columns from your RDD: map()
+Running a WHERE (filter) clause: filter()
+Getting the distinct values: distinct()
+Getting the number of partitions: getNumPartitions()
+Determining the size of your partitions (that is, the number of elements within each partition): mapPartitionsWithIndex()
+```
