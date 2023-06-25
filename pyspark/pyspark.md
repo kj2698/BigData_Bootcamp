@@ -301,3 +301,31 @@ This will produce the following output:
  (u'Pullman', u'WA'),  
  (u'Seattle', u'WA')]
 ```
+
+# .flatMap(...) transformation
+The flatMap(f) transformation is similar to map, but the new RDD flattens out all of the elements (that is, a sequence of events). Let's look at the following snippet:
+```
+# Filter only second column == "WA", 
+# select first two columns within the RDD,
+# and flatten out all values
+(
+    airports
+    .filter(lambda c: c[1] == "WA")
+    .map(lambda c: (c[0], c[1]))
+    .flatMap(lambda x: x)
+    .take(10)
+)
+The preceding code will produce the following output:
+
+# Output
+[u'Bellingham',  
+ u'WA',  
+ u'Moses Lake',  
+ u'WA',  
+ u'Pasco',  
+ u'WA',  
+ u'Pullman',  
+ u'WA',  
+ u'Seattle',  
+ u'WA']
+```
