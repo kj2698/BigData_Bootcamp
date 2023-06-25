@@ -329,3 +329,21 @@ The preceding code will produce the following output:
  u'Seattle',  
  u'WA']
 ```
+
+# .distinct() transformation
+The distinct() transformation returns a new RDD containing the distinct elements of the source RDD. So, look at the following code snippet:
+```
+# Provide the distinct elements for the 
+# third column of airports representing
+# countries
+(
+    airports
+    .map(lambda c: c[2])
+    .distinct()
+    .take(5)
+)
+This will return the following output:
+
+# Output
+[u'Canada', u'USA', u'Country']
+```
