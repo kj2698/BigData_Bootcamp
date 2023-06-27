@@ -610,3 +610,19 @@ Partitioning the data into three partitions will produce an incorrect result:
 data_reduce = sc.parallelize([1, 2, .5, .1, 5, .2], 3) data_reduce.reduce(lambda x, y: x / y)
 It will produce 0.004.
 ```
+
+# .count() action
+The count() action returns the number of elements in the RDD. See the following code:
+
+(
+    flights
+    .zipWithIndex()
+    .filter(lambda (row, idx): idx > 0)
+    .map(lambda (row, idx): row)
+    .count()
+)
+This will produce the following result:
+```
+# Output
+1391578
+```
