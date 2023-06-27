@@ -481,3 +481,17 @@ r1_s4.take(10)
 ```
 
 ## reduceByKey is only working for (K,V) pair of values, if we try for (K,V1,V2) its failing.
+
+# .sortByKey(...) transformation
+The sortByKey(asc) transformation orders (key, value) RDD by key and returns an RDD in ascending or descending order. Look at the following code snippet:
+
+```
+r1=sc.textFile('/config/workspace/departuredelays.csv',minPartitions=6)
+r1_s1=r1.map(lambda e:e.split(','))
+r1_s2=r1_s1.zipWithIndex()
+r1_s3=r1_s2.filter(lambda e:e[1]>0).map(lambda e:e[0]).map(lambda e:(e[3],int(e[1])))
+r1_s4=r1_s3.reduceByKey(lambda x,y:x+y).sortByKey()
+r1_s4.take(10)
+
+[('ABE', 5113), ('ABI', 5128), ('ABQ', 64422), ('ABY', 1554), ('ACT', 392), ('ACV', 8429), ('ADQ', -254), ('AEX', 10193), ('AGS', 5003), ('ALB', 22362)]
+```
