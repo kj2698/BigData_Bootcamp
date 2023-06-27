@@ -626,3 +626,22 @@ This will produce the following result:
 # Output
 1391578
 ```
+
+# .saveAsTextFile(...) action
+The saveAsTextFile() action saves your RDD into a text file; note that each partition is a separate file. See the following snippet:
+```
+# Saves airports as a text file
+#   Note, each partition has their own file
+
+# saveAsTextFile
+airports.saveAsTextFile("/tmp/denny/airports")
+This will actually save the following files:
+
+# Review file structure
+# Note that `airports` is a folder with two
+# files (part-zzzzz) as the airports RDD is 
+# comprised of two partitions.
+/tmp/denny/airports/_SUCCESS
+/tmp/denny/airports/part-00000
+/tmp/denny/airports/part-00001
+```
