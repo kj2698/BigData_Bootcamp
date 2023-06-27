@@ -414,3 +414,68 @@ flights2.getNumPartitions()
 # Output
 8
 ```
+
+# .zipWithIndex() transformation
+The zipWithIndex() transformation appends (or ZIPs) the RDD with the element indices. This is very handy when wanting to remove the header row (first row) of a file.
+
+Look at the following code snippet:
+```
+# View each row within RDD + the index 
+# i.e. output is in form ([row], idx)
+ac = airports.map(lambda c: (c[0], c[3]))
+ac.zipWithIndex().take(5)
+This will generate this result:
+
+# Output
+[((u'City', u'IATA'), 0),  
+ ((u'Abbotsford', u'YXX'), 1),  
+ ((u'Aberdeen', u'ABR'), 2),  
+ ((u'Abilene', u'ABI'), 3),  
+ ((u'Akron', u'CAK'), 4)]
+To remove the header from your data, you can use the following code:
+
+# Using zipWithIndex to skip header row
+# - filter out row 0
+# - extract only row info
+(
+    ac
+    .zipWithIndex()
+    .filter(lambda (row, idx): idx > 0)
+    .map(lambda (row, idx): row)
+    .take(5)
+)
+The preceding code will skip the header, as shown as follows:
+
+# Output
+[(u'Abbotsford', u'YXX'),  
+ (u'Aberdeen', u'ABR'),  
+ (u'Abilene', u'ABI'),  
+ (u'Akron', u'CAK'),  
+ (u'Alamosa', u'ALS')]
+```
+
+# .reduceByKey(...) transformation
+The reduceByKey(f) transformation reduces the elements of the RDD using f by the key. The f function should be commutative and associative so that it can be computed correctly in parallel.
+
+Look at the following code snippet:
+```
+r1=sc.textFile('/config/workspace/departuredelays.csv',minPartitions=6)
+r1.take(5)
+['date,delay,distance,origin,destination', '01011245,6,602,ABE,ATL', '01020600,-8,369,ABE,DTW', '01021245,-2,602,ABE,ATL', '01020605,-4,602,ABE,ATL']
+
+r1_s1=r1.map(lambda e:e.split(','))
+r1_s1.take(5)
+[['date', 'delay', 'distance', 'origin', 'destination'], ['01011245', '6', '602', 'ABE', 'ATL'], ['01020600', '-8', '369', 'ABE', 'DTW'], ['01021245', '-2', '602', 'ABE', 'ATL'], ['01020605', '-4', '602', 'ABE', 'ATL']]
+
+r1_s2=r1_s1.zipWithIndex()
+r1_s2.take(5)
+[(['date', 'delay', 'distance', 'origin', 'destination'], 0), (['01011245', '6', '602', 'ABE', 'ATL'], 1), (['01020600', '-8', '369', 'ABE', 'DTW'], 2), (['01021245', '-2', '602', 'ABE', 'ATL'], 3), (['01020605', '-4', '602', 'ABE', 'ATL'], 4)]
+
+r1_s3=r1_s2.filter(lambda e:e[1]>0).map(lambda e:e[0]).map(lambda e:(e[3],int(e[1])))
+r1_s3.take(5)
+[('ABE', 6), ('ABE', -8), ('ABE', -2), ('ABE', -4), ('ABE', -4)]
+
+r1_s4=r1_s3.reduceByKey(lambda x,y:x+y)
+r1_s4.take(10)
+[('ABE', 5113), ('ACT', 392), ('ADQ', -254), ('AEX', 10193), ('AUS', 108638), ('BFL', 4022), ('BHM', 44355), ('BMI', 7817), ('BQN', 3943), ('CEC', 2832)]
+```
