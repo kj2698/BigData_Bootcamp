@@ -532,3 +532,36 @@ This will generate the following output:
  [u'Victoria', u'BC', u'Canada', u'YYJ'], 
  [u'Williams Lake', u'BC', u'Canada', u'YWL']]
 ```
+
+# .mapPartitionsWithIndex(...) transformation
+The mapPartitionsWithIndex(f) is similar to map but runs the f function separately on each partition and provides an index of the partition. It is useful to determine the data skew within partitions (check the following snippet):
+```
+# Source: https://stackoverflow.com/a/38957067/1100699
+def partitionElementCount(idx, iterator):
+  count = 0
+  for _ in iterator:
+    count += 1
+  return idx, count
+
+# Use mapPartitionsWithIndex to determine 
+flights.mapPartitionsWithIndex(partitionElementCount).collect()
+The preceding code will produce the following result:
+
+# Output
+[0,  
+ 174293,  
+ 1,  
+ 174020,  
+ 2,  
+ 173849,  
+ 3,  
+ 174006,  
+ 4,  
+ 173864,  
+ 5,  
+ 174308,  
+ 6,  
+ 173620,  
+ 7,  
+ 173618]
+```
