@@ -495,3 +495,40 @@ r1_s4.take(10)
 
 [('ABE', 5113), ('ABI', 5128), ('ABQ', 64422), ('ABY', 1554), ('ACT', 392), ('ACV', 8429), ('ADQ', -254), ('AEX', 10193), ('AGS', 5003), ('ALB', 22362)]
 ```
+
+# .union(...) transformation
+The union(RDD) transformation returns a new RDD that is the union of the source and argument RDDs. Look at the following code snippet:
+```
+# Create `a` RDD of Washington airports
+a = (
+    airports
+    .zipWithIndex()
+    .filter(lambda (row, idx): idx > 0)
+    .map(lambda (row, idx): row)
+    .filter(lambda c: c[1] == "WA")
+)
+
+# Create `b` RDD of British Columbia airports
+b = (
+    airports
+    .zipWithIndex()
+    .filter(lambda (row, idx): idx > 0)
+    .map(lambda (row, idx): row)
+    .filter(lambda c: c[1] == "BC")
+)
+
+# Union WA and BC airports
+a.union(b).collect()
+This will generate the following output:
+
+# Output
+[[u'Bellingham', u'WA', u'USA', u'BLI'],
+ [u'Moses Lake', u'WA', u'USA', u'MWH'],
+ [u'Pasco', u'WA', u'USA', u'PSC'],
+ [u'Pullman', u'WA', u'USA', u'PUW'],
+ [u'Seattle', u'WA', u'USA', u'SEA'],
+...
+ [u'Vancouver', u'BC', u'Canada', u'YVR'],
+ [u'Victoria', u'BC', u'Canada', u'YYJ'], 
+ [u'Williams Lake', u'BC', u'Canada', u'YWL']]
+```
