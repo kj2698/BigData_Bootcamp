@@ -565,3 +565,48 @@ The preceding code will produce the following result:
  7,  
  173618]
 ```
+
+# .collect() action
+We have also cautioned you about using this action; collect() returns all of the elements from the workers to the driver. Thus, look at the following code:
+```
+# Return all airports elements
+# filtered by WA state
+airports.filter(lambda c: c[1] == "WA").collect()
+This will generate the following output:
+# Output
+[[u'Bellingham', u'WA', u'USA', u'BLI'],  [u'Moses Lake', u'WA', u'USA', u'MWH'],  [u'Pasco', u'WA', u'USA', u'PSC'],  [u'Pullman', u'WA', u'USA', u'PUW'],  [u'Seattle', u'WA', u'USA', u'SEA'],  [u'Spokane', u'WA', u'USA', u'GEG'],  [u'Walla Walla', u'WA', u'USA', u'ALW'],  [u'Wenatchee', u'WA', u'USA', u'EAT'],  [u'Yakima', u'WA', u'USA', u'YKM']]
+```
+
+# .reduce(...) action
+The reduce(f) action aggregates the elements of an RDD by f. The f function should be commutative and associative so that it can be computed correctly in parallel. Look at the following code:
+```
+# Calculate the total delays of flights
+# between SEA (origin) and SFO (dest),
+# convert delays column to int 
+# and summarize
+flights\
+ .filter(lambda c: c[3] == 'SEA' and c[4] == 'SFO')\
+ .map(lambda c: int(c[1]))\
+ .reduce(lambda x, y: x + y)
+This will produce the following result:
+
+# Output
+22293
+We need to make an important note here, however. When using reduce(), the reducer function needs to be associative and commutative; that is, a change in the order of elements and operands does not change the result.
+
+Associativity rule: (6 + 3) + 4 = 6 + (3 + 4)
+Commutative rule:  6 + 3 + 4 = 4 + 3 + 6
+
+Error can occur if you ignore the aforementioned rules.
+
+As an example, see the following RDD (with one partition only!):
+
+data_reduce = sc.parallelize([1, 2, .5, .1, 5, .2], 1)
+Reducing data to divide the current result by the subsequent one, we would expect a value of 10:
+
+works = data_reduce.reduce(lambda x, y: x / y)
+Partitioning the data into three partitions will produce an incorrect result:
+
+data_reduce = sc.parallelize([1, 2, .5, .1, 5, .2], 3) data_reduce.reduce(lambda x, y: x / y)
+It will produce 0.004.
+```
