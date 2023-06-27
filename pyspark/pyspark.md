@@ -479,3 +479,5 @@ r1_s4=r1_s3.reduceByKey(lambda x,y:x+y)
 r1_s4.take(10)
 [('ABE', 5113), ('ACT', 392), ('ADQ', -254), ('AEX', 10193), ('AUS', 108638), ('BFL', 4022), ('BHM', 44355), ('BMI', 7817), ('BQN', 3943), ('CEC', 2832)]
 ```
+
+## reduceByKey is only working for (K,V) pair of values, if we try for (K,V1,V2) its failing.
