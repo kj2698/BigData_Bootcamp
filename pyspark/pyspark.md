@@ -789,6 +789,12 @@ In the case of Spark DataFrames, for this query it is much simpler for it to con
 
 
 
+# Data Analysis with Python and PySpark
+## Jonathan Rioux
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/92a36877-e367-4ed3-bdb6-f63f2961caf4)
+
+An RDD versus a data frame. In the RDD, we think of each record as an independent entity. With the data frame, we mostly interact with columns, performing functions on them. We still can access the rows of a data frame, via RDD, if necessary.
 
 
 
