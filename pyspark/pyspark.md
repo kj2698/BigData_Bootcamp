@@ -707,4 +707,19 @@ An excellent resource on PySpark performance is Holden Karau’s Improving PySpa
 
 This is even more apparent when using Python UDFs, as the performance is significantly slower because all of the data will need to be transferred to the driver prior to using a Python UDF. Note that vectorized UDFs were introduced as part of Spark 2.3 and will improve PySpark UDF performance. For more information, please refer to Introducing Vectorized UDFs for PySpark at https://databricks.com/blog/2017/10/30/introducing-vectorized-udfs-for-pyspark.html.
 
+# Getting ready
+As in the previous sections, let's make use of the flights dataset and create an RDD and a DataFrame against this dataset:
+```
+## Create flights RDD
+flights = sc.textFile('/databricks-datasets/flights/departuredelays.csv')\
+  .map(lambda line: line.split(","))\
+  .zipWithIndex()\
+  .filter(lambda (row, idx): idx > 0)\
+  .map(lambda (row, idx): row)
 
+# Create flightsDF DataFrame
+flightsDF = spark.read\
+  .options(header='true', inferSchema='true')
+  .csv('~/data/flights/departuredelays.csv')
+flightsDF.createOrReplaceTempView("flightsDF")
+```
