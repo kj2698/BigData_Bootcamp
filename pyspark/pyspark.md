@@ -775,6 +775,7 @@ To better understand the performance of the previous RDD and DataFrame, let's re
 ![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/409440bb-3e92-4952-b147-b38de74c5e26)
 
 Each of these jobs spawn their own set of stages to initially read the text (or CSV) file, execute  reduceByKey(), and execute the sortByKey() functions:
+
 ![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/f1b5f59d-42d2-4888-a010-d15c7b13d6b5)
 
 With two additional jobs to complete the sortByKey() execution:
