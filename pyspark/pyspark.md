@@ -788,6 +788,8 @@ In the case of Spark DataFrames, for this query it is much simpler for it to con
 ![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/907fbc99-5e4a-4b50-9293-1d037167d933)
 
 
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/865f244f-32b4-4470-b4ba-6e615a3901dc)
+
 
 # Data Analysis with Python and PySpark
 ## Jonathan Rioux
