@@ -723,3 +723,48 @@ flightsDF = spark.read\
   .csv('~/data/flights/departuredelays.csv')
 flightsDF.createOrReplaceTempView("flightsDF")
 ```
+
+## How to do it...
+In this section, we will run the same group by statement—one via an RDD using reduceByKey(), and one via a DataFrame using Spark SQL GROUP BY. For this query, we will sum the time delays grouped by originating city and sort according to the originating city:
+```
+# RDD: Sum delays, group by and order by originating city
+flights.map(lambda c: (c[3], int(c[1]))).reduceByKey(lambda x, y: x + y).sortByKey().take(50)
+
+# Output (truncated)
+# Duration: 11.08 seconds
+[(u'ABE', 5113),  
+ (u'ABI', 5128),  
+ (u'ABQ', 64422),  
+ (u'ABY', 1554),  
+ (u'ACT', 392),
+ ... ]
+```
+
+For this particular configuration, it took 11.08 seconds to extract the columns, execute reduceByKey() to summarize the data, execute sortByKey() to order it, and then return the values to the driver:
+```
+# RDD: Sum delays, group by and order by originating city
+spark.sql("select origin, sum(delay) as TotalDelay from flightsDF group by origin order by origin").show(50)
+
+# Output (truncated)
+# Duration: 4.76s
++------+----------+ 
+|origin|TotalDelay| 
++------+----------+ 
+| ABE  |      5113| 
+| ABI  |      5128|
+| ABQ  |     64422| 
+| ABY  |      1554| 
+| ACT  |       392|
+...
++------+----------+ 
+```
+There are many advantages of Spark DataFrames, including, but not limited to the following:
+
+You can execute Spark SQL statements (not just through the Spark DataFrame API)
+There is a schema associated with your data so you can specify the column name instead of position
+In this configuration and example, the query completes in 4.76 seconds, while RDDs complete in 11.08 seconds
+
+It is impossible to improve your RDD query by specifying minPartitions within sc.textFile() when originally loading the data to increase the number of partitions:
+flights = sc.textFile('/databricks-datasets/flights/departuredelays.csv', minPartitions=8), ...
+`flights = sc.textFile('/databricks-datasets/flights/departuredelays.csv', minPartitions=8), ...`
+For this configuration, the same query returned in 6.63 seconds. While this approach is faster, its still slower than DataFrames; in general, DataFrames are faster out of the box with the default configuration. 
