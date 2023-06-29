@@ -941,7 +941,57 @@ Once the driver reaches an action, it optimizes the whole computation chain and 
 
 That’s it! As we can see, the overall process is quite simple, but it’s obvious that Spark hides a lot of the complexity that arises from efficient distributed processing. For a developer, this means shorter and clearer code, and a faster development cycle.
 
+# 2 Your first data program in PySpark
+This chapter covers
 
+Launching and using the pyspark shell for interactive development
+Reading and ingesting data into a data frame
+Exploring data using the DataFrame structure
+Selecting columns using the select() method
+Reshaping single-nested data into distinct records using explode()
+Applying simple functions to your columns to modify the data they contain
+Filtering columns using the where() method
+Data-driven applications, no matter how complex, all boil down to what we can think of as three meta steps, which are easy to distinguish in a program:
 
+1. We start by loading or reading the data we wish to work with.
+
+2. We transform the data, either via a few simple instructions or a very complex machine learning model.
+
+3. We then export (or sink) the resulting data, either into a file or by summarizing our findings into a visualization.
+
+# 2.1 Setting up the PySpark shell
+Once everything is set up, the easiest way to ensure that everything is running is by launching the PySpark shell by inputting pyspark into your terminal. You should see an ASCII-art version of the Spark logo, as well as some useful information. Listing 2.1 shows what happens on my local machine. In section 2.1.1, you’ll find a less magical alternative to running pyspark as a command that will help you with integrating PySpark into an existing Python REPL.
+
+## Listing 2.1 Launching pyspark on a local machine
+```
+$ pyspark
+ 
+Python 3.8.8 | packaged by conda-forge | (default, Feb 20 2021, 15:50:57)
+[Clang 11.0.1 ] on darwin
+Type "help", "copyright", "credits" or "license" for more information.
+21/08/23 07:28:16 WARN Utils: Your hostname, gyarados-2.local resolves to a loopback address: 
+    127.0.0.1; using 192.168.2.101 instead (on interface en0)
+21/08/23 07:28:16 WARN Utils: Set SPARK_LOCAL_IP if you need to bind to another address
+21/08/23 07:28:17 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... 
+    using builtin-java classes where applicable                                              ❶
+Using Spark's default log4j profile: org/apache/spark/log4j-defaults.properties
+Setting default log level to "WARN".
+To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel). ❷
+Welcome to
+      ____              __
+     / __/__  ___ _____/ /__
+    _\ \/ _ \/ _ `/ __/  '_/
+   /__ / .__/\_,_/_/ /_/\_\   version 3.2.0                                                  ❸
+      /_/
+ 
+Using Python version 3.8.8 (default, Feb 20 2021 15:50:57)                                   ❹
+Spark context Web UI available at http:/ /192.168.2.101:4040                                 ❺
+Spark context available as 'sc' (master = local[*], app id = local-1629718098205).           ❻
+SparkSession available as 'spark'.                                                           ❻
+  
++In [1]:
+```
+
+# 2.1.1 The SparkSession entry point
 
 
