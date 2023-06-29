@@ -798,6 +798,150 @@ In the case of Spark DataFrames, for this query it is much simpler for it to con
 
 An RDD versus a data frame. In the RDD, we think of each record as an independent entity. With the data frame, we mostly interact with columns, performing functions on them. We still can access the rows of a data frame, via RDD, if necessary.
 
+# 1.1 What is PySpark?
+What’s in a name? Actually, quite a lot. Just by separating PySpark in two, you can already deduce that this will be related to Spark and Python. And you would be right!
+
+At its core, PySpark can be summarized as being the Python API to Spark. While this is an accurate definition, it doesn’t give much unless you know the meaning of Python and Spark. Still, let’s break down the summary definition by first answering “What is Spark?” With that under our belt, we then will look at why Spark becomes especially powerful when combined with Python and its incredible array of analytical (and machine learning) libraries.
+
+# 1.1.2 PySpark = Spark + Python
+PySpark provides an entry point to Python in the computational model of Spark. Spark itself is coded in Scala.2 The authors did a great job of providing a coherent interface between languages while preserving the idiosyncrasies of each language where appropriate. It will, therefore, be quite easy for a Scala/Spark programmer to read your PySpark program, as well as for a fellow Python programmer who hasn’t jumped into the deep end (yet).
+
+Python is a dynamic, general-purpose language, available on many platforms and for a variety of tasks. Its versatility and expressiveness make it an especially good fit for PySpark. The language is one of the most popular for a variety of domains, and currently it is a major force in data analysis and science. The syntax is easy to learn and read, and the number of libraries available means that you’ll often find one (or more!) that’s just the right fit for your problem.
+
+# 1.2 Your very own factory: How PySpark works
+In this section, we cover how Spark processes a program. It can be a little odd to present the workings and underpinnings of a system that we claimed, a few paragraphs ago, hides that complexity. Still, it is important to have a working knowledge of how Spark is set up, how it manages data, and how it optimizes queries. With this, you will be able to reason with the system, improve your code, and figure out quickly when it doesn’t perform the way you want.
+
+If we keep the factory analogy, we can imagine that the cluster of computers Spark is sitting on is the building. If we look at figure 1.1, we can see two different ways to interpret a data factory. On the left, we see how it looks from the outside: a cohesive unit where projects come in and results come out. This is how it will appear to you most of the time. Under the hood, it looks more like what’s on the right: you have some workbenches that some workers are assigned to. The workbenches are like the computers in our Spark cluster: there is a fixed amount of them. Some modern Spark implementations, such as Databricks (see appendix B), allow for auto-scaling the number of machines at runtime. Some require more planning, especially if you run on the premises and own your hardware. The workers are called executors in Spark’s literature: they perform the actual work on the machines/nodes.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/bf8c31f0-7ebd-45c6-b815-c4750245ae54)
+
+Figure 1.1 A totally relatable data factory, outside and in. Ninety percent of the time we care about the whole factory, but knowing how it’s laid out helps when reflecting on our code performance.
+
+One of the little workers looks spiffier than the other. That top hat definitely makes him stand out from the crowd. In our data factory, he’s the manager of the work floor. In Spark terms, we call this the master.4 The master here sits on one of the workbenches/machines, but it can also sit on a distinct machine (or even your computer!) depending on the cluster manager and deployment mode. The role of the master is crucial to the efficient execution of your program, so section 1.2.2 is dedicated to this.
+
+# 1.2.1 Some physical planning with the cluster manager
+Upon reception of the task, which is called a driver program in the Spark world, the factory starts running. This doesn’t mean that we get straight to processing. Before that, the cluster needs to plan the capacity it will allocate for your program. The entity or program taking care of this is aptly called the cluster manager. In our factory, this cluster manager will look at the workbenches with available space and secure as many as necessary, and then start hiring workers to fill the capacity. In Spark, it will look at the machines with available computing resources and secure what’s necessary before launching the required number of executors across them.
+
+`NOTE` Spark provides its own cluster manager, called Standalone, but can also play well with other ones when working in conjunction with Hadoop or another big data platform. If you read about YARN, Mesos, or Kubernetes in the wild, know that they are used (as far as Spark is concerned) as cluster managers.
+
+Any directions about capacity (machines and executors) are encoded in a SparkContext representing the connection to our Spark cluster. If our instructions don’t mention any specific capacity, the cluster manager will allocate the default capacity prescribed by our Spark installation.
+
+As an example, let’s try the following operation. Using the same sample.csv file in listing 1.1 (available in the book’s repository), let’s compute a simplified version of the program: return the arithmetic average of the values of old_column. Let’s assume that our Spark instance has four executors, each working on its own worker node. The data processing will be approximately split between the four executors: each will have a small portion of the data frame that it will work with.
+
+```
+less data/list_of_numbers/sample.csv
+ 
+ 
+old_column
+1
+4
+4
+5
+7
+7
+7
+10
+14
+1
+4
+8
+```
+Figure 1.2 depicts one way that PySpark could process the average of our old_column in our small data frame. I chose the average because it is not trivially distributable, unlike the sum or the count, where you sum the intermediate values from each worker. In the case of computing the average, each worker independently computes the sum of the values and their counts before moving the result—not all the data!—over to a single worker (or the master directly, when the intermediate result is really small) that will process the aggregation into a single number, the average.
+
+For a simple example like this, mapping the thought process of PySpark is an easy and fun exercise. The size of our data and the complexity of our programs will grow and will get more complicated, and we will not be able to easily map our code to exact physical steps performed by our Spark instance. Chapter 11 covers the mechanism Spark uses to give us visibility into the work performed as well as the health of our factory.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/e1765a7f-a5dc-45ff-a430-81ef9a6c4696)
+
+Figure 1.2 Computing the average of our small data frame, PySpark style: each worker works on a distinct piece of data. As necessary, the data gets moved/shuffled around to complete the instructions.
+
+This section took a simple example—computing the average of a data frame of numbers—and we mapped a blueprint of the physical steps performed by Spark to give us the right answer. In the next section, we get to one of Spark’s best, and most misunderstood, features: laziness. In the case of big data analysis, hard work pays off, but smart work is better!
+
+Some language convention: Data frame vs. DataFrame
+
+Since this book will talk about data frames more than anything else, I prefer using the noncapitalized nomenclature (i.e., “data frame”). I find this more readable than using capital letters or even “dataframe” without a space.
+
+When referring to the PySpark object directly, I’ll use DataFrame but with a fixed-width font. This will help differentiate between “data frame” the concept and DataFrame the object.
+
+# 1.2.2 A factory made efficient through a lazy leader
+This section introduces one of the most fundamental aspects of Spark: its lazy evaluation capabilities. In my time teaching PySpark and troubleshooting data scientists’ programs, I would say that laziness is the concept in Spark that creates the most confusion. It’s a real shame because laziness is (in part) how Spark achieves its incredible processing speed. By understanding at a high level how Spark makes laziness work, you will be able to explain a lot of its behavior and better tune for performance.
+
+Just like in a large-scale factory, you don’t go to each employee and give them a list of tasks. No, here, the master/manager is responsible for the workers. The driver is where the action happens. Think of a driver as a floor lead: you provide them your list of steps and let them deal with it. In Spark, the driver/floor lead takes your instructions (carefully written in Python code), translates them into Spark steps, and then processes them across the worker. The driver also manages which worker/table has which slice of the data, and makes sure you don’t lose some bits in the process. The executor/factory worker sits atop the workers/tables and performs the actual work on the data.
+
+As a summary:
+
+The master is like the factory owner, allocating resources as needed to complete the jobs.
+
+The driver is responsible for completing a given job. It requests resources from the master as needed.
+
+A worker is a set of computing/memory resources, like a workbench in our factory.
+
+Executors sit atop a worker and perform the work sent by the driver, like employees at a workbench.
+
+We’ll review the terminology in practice in chapter 11.
+
+Taking the example of listing 1.1 and breaking each instruction one by one, PySpark won’t start performing the work until the write instruction. If you use regular Python or a pandas data frame, which are not lazy (we call this eager evaluation), each instruction is performed one by one as it’s being read.
+
+Your floor lead/driver has all the qualities a good manager has: it’s smart, cautious, and lazy. Wait, what? You read me right. Laziness in a programming context—and, one could argue, in the real world too—can be a very good thing. Every instruction you’re providing in Spark can be classified into two categories: transformations and actions. Actions are what many programming languages would consider I/O. The most typical actions are the following:
+
+Printing information on the screen
+
+Writing data to a hard drive or cloud bucket
+
+Counting the number of records
+
+In Spark, we’ll see those instructions most often via the show(), write(), and count() methods on a data frame.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/d8f6364c-c371-4077-9cf7-fa91bab35193)
+
+Figure 1.3 Breaking down the data frame instructions as a series of transformations and one action. Each “job” Spark will perform consists of zero or more transformations and one action.
+
+Transformations are pretty much everything else. Some examples of transformations are as follows:
+
+Adding a column to a table
+
+Performing an aggregation according to certain keys
+
+Computing summary statistics
+
+Training a machine learning model
+
+Why the distinction, you might ask? When thinking about computation over data, you, as the developer, are only concerned about the computation leading to an action. You’ll always interact with the results of an action because this is something you can see. Spark, with its lazy computation model, will take this to the extreme and avoid performing data work until an action triggers the computation chain. Before that, the driver will store your instructions. This way of dealing with computation has many benefits when dealing with large-scale data.
+
+NOTE As we see in chapter 5, count() is a transformation when applied as an aggregation function (where it counts the number of records of each group) but an action when applied on a data frame (where it counts the number of records in a data frame).
+
+First, storing instructions in memory takes much less space than storing intermediate data results. If you are performing many operations on a data set and are materializing the data each step of the way, you’ll blow your storage much faster, although you don’t need the intermediate results. We can all agree that less waste is better.
+
+Second, by having the full list of tasks to be performed available, the driver can optimize the work between executors much more efficiently. It can use the information available at run time, such as the node where specific parts of the data are located. It can also reorder, eliminate useless transformations, combine multiple operations, and rewrite some portion of the program more effectively, if necessary.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/aace657c-23e9-4766-82fe-928da5ce904e)
+
+Figure 1.4 Eager versus lazy evaluation: storing (and computing on the fly) transformation saves memory by reducing the need for intermediate data frames. It also makes it easier to recreate the data frame if one of the nodes fails.
+
+Third, should one node fail during processing—computers fail!—Spark will be able to recreate the missing chunks of data since it has the instructions cached. It’ll read the relevant chunk of data and process it up to where you are without the need for you to do anything. With this, you can focus on the data-processing aspect of your code, offloading the disaster and recovery part to Spark. Check out chapter 11 for more information about compute and memory resources, and how to monitor for failures.
+
+Finally, during interactive development, you don’t have to submit a huge block of commands and wait for the computation to happen. Instead, you can iteratively build your chain of transformation, one at a time, and when you’re ready to launch the computation, you can add an action and let Spark work its magic.
+
+Lazy computation is a fundamental aspect of Spark’s operating model and part of the reason it’s so fast. Most programming languages, including Python, R, and Java, are eagerly evaluated. This means that they process instructions as soon as they receive them. With PySpark, you get to use an eager language—Python—with a lazy framework—Spark. This can look a little foreign and intimidating, but you don’t need to worry. The best way to learn is by doing, and this book provides explicit examples of laziness when relevant. You’ll be a lazy pro in no time!
+
+One aspect to remember is that Spark will not preserve the results of actions (or the intermediate data frames) for subsequent computations. If you submit the same program twice, PySpark will process the data twice. We use caching to change this behavior and optimize certain hot spots in our code (most noticeably when training an ML model), and chapter 11 provides you with how and when to cache (spoiler: not as often as you’d think).
+
+NOTE Reading data, although being I/O, is considered a transformation by Spark. In most cases, reading data doesn’t perform any visible work for the user. You, therefore, won’t read data until you need to perform some work on it (writing, reading, inferring schema; see chapter 6 for more information).
+
+What’s a manager without competent employees? Once the task, with its action, has been received, the driver starts allocating data to what Spark calls executors. Executors are processes that run computations and store data for the application. Those executors sit on what’s called a worker node, which is the actual computer. In our factory analogy, an executor is an employee performing the work, while the worker node is a workbench where many employees/executors can work.
+
+That concludes our factory tour. Let’s summarize our typical PySpark program:
+
+We first encode our instructions in Python code, forming a driver program.
+
+When submitting our program (or launching a PySpark shell), the cluster manager allocates resources for us to use. Those will mostly stay constant (with the exception of auto-scaling) for the duration of the program.
+
+The driver ingests your code and translates it into Spark instructions. Those instructions are either transformations or actions.
+
+Once the driver reaches an action, it optimizes the whole computation chain and splits the work between executors. Executors are processes performing the actual data work, and they reside on machines labeled worker nodes.
+
+That’s it! As we can see, the overall process is quite simple, but it’s obvious that Spark hides a lot of the complexity that arises from efficient distributed processing. For a developer, this means shorter and clearer code, and a faster development cycle.
+
+
 
 
 
