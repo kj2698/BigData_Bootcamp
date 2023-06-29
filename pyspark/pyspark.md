@@ -993,5 +993,137 @@ SparkSession available as 'spark'.                                              
 ```
 
 # 2.1.1 The SparkSession entry point
+PySpark uses a builder pattern through the SparkSession.builder object. For those familiar with object-oriented programming, a builder pattern provides a set of methods to create a highly configurable object without having multiple constructors.
+
+In listing 2.2, we start the builder pattern and then chain a configuration parameter that defined the application name. This isn’t necessary, but when monitoring your jobs (see chapter 11), having a unique and well-thought-out job name will make it easier to know what’s what. We finish the builder pattern with the .getOrCreate() method to materialize and instantiate our SparkSession.
+```
+Listing 2.2 Creating a SparkSession entry point from scratch
+
+from pyspark.sql import SparkSession                                   ❶
+  
+spark = (SparkSession
+         .builder                                                      ❷
+         .appName("Analyzing the vocabulary of Pride and Prejudice.")  ❸
+         .getOrCreate())
+```
+
+❶ The SparkSession entry point is located in the pyspark.sql package, providing the functionality for data transformation.
+
+❷ PySpark provides a builder pattern abstraction for constructing a SparkSession, where we chain the methods to configure the entry point.
+
+❸ Providing a relevant appName helps in identifying which programs run on your Spark cluster (see chapter 11).
+
+`NOTE` By using the getOrCreate() method, your program will work in both interactive and batch mode by avoiding the creation of a new SparkSession if one already exists. Note that if a session already exists, you won’t be able to change certain configuration settings (mostly related to JVM options). If you need to change the configuration of your SparkSession, kill everything and start from scratch to avoid any confusion.
+
+In chapter 1, we spoke briefly about the Spark entry point called SparkContext, which is the liaison between your Python REPL and the Spark cluster. SparkSession is a superset of that. It wraps the SparkContext and provides functionality for interacting with the Spark SQL API, which includes the data frame structure we’ll use in most of our programs. Just to prove our point, see how easy it is to get to the SparkContext from our SparkSession object—just call the sparkContext attribute from spark:
+```
+$ spark.sparkContext
+# <SparkContext master=local[*] appName=Analyzing the vocabulary of [...]>
+```
+
+# 2.1.2 Configuring how chatty spark is: The log level
+This section covers the log level, probably the most overlooked (and annoying) element of a PySpark program. Monitoring your PySpark jobs is an important part of developing a robust program. PySpark provides many levels of logging, from nothing at all to a full description of everything happening on the cluster. The pyspark shell defaults on WARN, which can be a little chatty when we’re learning. More importantly, a non-interactive PySpark program (which is how you’ll run your scripts for the most part) defaults to the oversharing INFO level. Fortunately, we can change the settings for your session by using the code in the next listing.
+
+```
+Listing 2.3 Deciding how chatty you want PySpark to be
+
+spark.sparkContext.setLogLevel("KEYWORD")
+```
+Table 2.1 lists the available keywords you can pass to setLogLevel (as strings). Each subsequent keyword contains all the previous ones, with the obvious exception of OFF, which doesn’t show anything.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/2099e173-d11c-4ec3-b679-8bb4c3a2c50f)
+
+# 2.2 Mapping our program
+In this chapter’s introduction, we introduced our problem statement: “What are the most popular words used in the English language?” Before we can even hammer out code in the REPL, we have to start by mapping the major steps our program will need to perform:
+
+1. Read—Read the input data (we’re assuming a plain text file).
+
+2. Token—Tokenize each word.
+
+3. Clean—Remove any punctuation and/or tokens that aren’t words. Lowercase each word.
+
+4. Count—Count the frequency of each word present in the text.
+
+5. Answer—Return the top 10 (or 20, 50, 100).
+Visually, a simplified flow of our program would look like figure 2.1.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/4c886f60-77a8-4340-8d01-f036c0424967)
+
+# 2.3 Ingest and explore: Setting the stage for data transformation
+This section covers the three operations every PySpark program will encounter, regardless of the nature of your program: ingesting data into a structure, printing the structure (or schema) to see how the data is organized, and finally showing a sample of the data for review. Those operations are fundamental to any data analysis, whether it is text (this chapter and chapter 3), tabular (most chapters, but especially chapter 4 and 5), or even binary or hierarchical data (chapter 6); the general blueprint and methods will apply everywhere in your PySpark journey.
+
+# 2.3.1 Reading data into a data frame with spark.read
+The first step of our program is to ingest the data in a structure we can perform work in. This section introduces the basic functionality PySpark provides for reading data and how it is specialized for plain text.
+
+Before ingesting any data, we need to choose where it’s going to go. PySpark provides two main structures for storing data when performing manipulations:
+
+The RDD
+
+The data frame
+
+The RDD was the only structure for a long time. It looks like a distributed collection of objects (or rows). I visualize this as a bag that you give orders to. You pass orders to the RDD through regular Python functions over the items in the bag.
+
+The data frame is a stricter version of the RDD. Conceptually, you can think of it like a table, where each cell can contain one value. The data frame makes heavy usage of the concept of columns, where you operate on columns instead of on records, like in the RDD. Figure 2.2 provides a visual summary of the two structures. The data frame is now the dominant data structure, and we will almost exclusively use it in this book; chapter 8 covers the RDD (a more general and flexible structure, from which the data frame inherits) for cases that need record-by-record flexibility.
+
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/c9bc7ef0-dffd-4a71-8d39-4c5f27e8bbd6)
+
+Figure 2.2 An RDD versus a data frame. In the RDD, we think of each record as an independent entity. With the data frame, we mostly interact with columns, performing functions on them. We still can access the rows of a data frame via RDD if necessary.
+
+If you’ve used SQL in the past, you’ll find that the data frame implementation takes a lot of inspiration from SQL. The module name for data organization and manipulation is even named pyspark.sql! Furthermore, chapter 7 teaches how to mix PySpark and SQL code within the same program.
+
+Reading data into a data frame is done through the DataFrameReader object, which we can access through spark.read. The code in listing 2.4 displays the object, as well as the methods it exposes. We recognize a few file formats: CSV stands for comma-separated values (which we’ll use as early as chapter 4), JSON for JavaScript Object Notation (a popular data exchange format), and text is, well, just plain text.
+```
+Listing 2.4 The DataFrameReader object
+
+In [3]: spark.read
+Out[3]: <pyspark.sql.readwriter.DataFrameReader at 0x115be1b00>
+ 
+In [4]: dir(spark.read)
+Out[4]: [<some content removed>, _spark', 'csv', 'format', 'jdbc', 'json',
+'load', 'option', 'options', 'orc', 'parquet', 'schema', 'table', 'text']
+```
+
+PySpark reads your data
+
+PySpark can accommodate the different ways you can process data. Under the hood, spark.read.csv() will map to spark.read.format('csv').load(), and you may encounter this form in the wild. I usually prefer using the direct csv method as it provides a handy reminder of the different parameters the reader can take.
+
+orc and parquet are also data formats that are especially well suited for big data processing. ORC (which stands for “optimized row columnar”) and Parquet are competing data formats that pretty much serve the same purpose. Both are open sourced and now part of the Apache project, just like Spark.
+
+PySpark defaults to using Parquet when reading and writing files, and we’ll use this format to store our results throughout the book. I’ll provide a longer discussion about the usage, advantages, and trade-offs of using Parquet or ORC as a data format in chapter 6.
+
+Let’s read our data file in listing 2.5. I am assuming you launched PySpark at the root of this book’s repository. Depending on your case, you might need to change the path where the file is located. The code is all available on the book’s companion repository on GitHub (http://mng.bz/6ZOR).
+
+```
+Listing 2.5 “Reading” our Jane Austen novel in record time
+
+book = spark.read.text("./data/gutenberg_books/1342-0.txt")
+ 
+book
+# DataFrame[value: string]
+```
+We get a data frame, as expected! If you input your data frame, conveniently named book, into the shell, you see that PySpark doesn’t output any data to the screen. Instead, it prints the schema, which is the name of the columns and their type. In PySpark’s world, each column has a type: it represents how the value is represented by Spark’s engine. By having the type attached to each column, you can instantly know what operations you can do on the data. With this information, you won’t inadvertently try to add an integer to a string: PySpark won’t let you add 1 to “blue.” Here, we have one column, named value, composed of a string. A quick graphical representation of our data frame would look like figure 2.3: each line of text (separated by a newline character) is a record. Besides being a helpful reminder of the content of the data frame, types are integral to how Spark processes data quickly and accurately. We will explore the subject extensively in chapter 6.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/cc5889e4-ebfc-4deb-ba3e-17dc5e06e4ac)
+When working with a larger data frame (think hundreds or even thousands of columns), you may want to see the schema displayed more clearly. PySpark provides printSchema() to display the schema in a tree form. I use this method probably more than any other one as it gives you direct information on the structure of the data frame. Since printSchema() directly prints to the REPL with no other option, should you want to filter the schema, you can use the dtypes attributes of the data frame, which gives you a list of tuples (column_name, column_type). You can also access the schema programmatically (as a data structure) using the schema attribute (see chapter 6 for more information).
+```
+Listing 2.6 Printing the schema of our data frame
+
+book.printSchema()
+ 
+# root                                   ❶
+#  |-- value: string (nullable = true)   ❷
+ 
+print(book.dtypes)
+ 
+# [('value', 'string')]                  ❸
+```
+❶ Each data frame tree starts with a root, which the columns are attached to.
+
+❷ We have one column value, containing strings that can be null (or None in Python terms).
+
+❸ The same information is stored as a list of tuples under the data frame’s dtypes attribute.
+
+In this section, we ingested our textual data into a data frame. This data frame inferred a simple columnar structure that we can explore through the variable name in the REPL, the printSchema() method, or the dtypes attribute. In the next section, we go beyond the structure to peek at the data inside.
 
 
