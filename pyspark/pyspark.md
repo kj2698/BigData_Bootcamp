@@ -1126,4 +1126,182 @@ print(book.dtypes)
 
 In this section, we ingested our textual data into a data frame. This data frame inferred a simple columnar structure that we can explore through the variable name in the REPL, the printSchema() method, or the dtypes attribute. In the next section, we go beyond the structure to peek at the data inside.
 
+# 2.3.2 From structure to content: Exploring our data frame with show()
+Enter the show() method, which displays a few rows of the data back to you—nothing more, nothing less. With printSchema(), this method will become one of your best friends when performing data exploration and validation. By default, it will show 20 rows and truncate long values. The code in listing 2.8 shows the default behavior of the method applied to our book data frame. 
 
+```
+Listing 2.8 Showing a little data using the .show() method
+
+book.show()
+ 
+# +--------------------+
+# |               value|    ❶
+# +--------------------+
+# |The Project Guten...|
+# |                    |
+# |This eBook is for...|
+# |almost no restric...|
+# |re-use it under t...|
+# |with this eBook o...|
+# |                    |
+# |                    |
+# |Title: Pride and ...|
+# |                    |
+# | [... more records] |
+# |Character set enc...|
+# |                    |
+# +--------------------+
+# only showing top 20 rows
+```
+❶ Spark displays the data from the data frame in an ASCII art-like table, limiting the length of each cell to 20 characters. If the contents spill over the limit, an ellipsis is added at the end.
+
+The show() method takes three optional parameters:
+
+n can be set to any positive integer and will display that number of rows.
+
+truncate, if set to true, will truncate the columns to display only 20 characters. Set to False, it will display the whole length, or any positive integer to truncate to a specific number of characters.
+
+vertical takes a Boolean value and, when set to True, will display each record as a small table. If you need to check records in detail, this is a very useful option.
+```
+Listing 2.9 Showing less length, more width with the show() method
+
+book.show(10, truncate=50)
+ 
+# +--------------------------------------------------+
+# |                                             value|
+# +--------------------------------------------------+
+# |The Project Gutenberg EBook of Pride and Prejud...|
+# |                                                  |
+# |This eBook is for the use of anyone anywhere at...|
+# |almost no restrictions whatsoever.  You may cop...|
+# |re-use it under the terms of the Project Gutenb...|
+# |    with this eBook or online at www.gutenberg.org|
+# |                                                  |
+# |                                                  |
+# |                        Title: Pride and Prejudice|
+# |                                                  |
+# +--------------------------------------------------+
+# only showing top 10 rows
+```
+
+We can now start the real work: performing transformations on the data frame to accomplish our goal. Let’s take some time to review the five steps we outlined at the beginning of the chapter:
+
+1. `[DONE]`Read—Read the input data (we’re assuming a plain text file).
+
+2. Token—Tokenize each word.
+
+3. Clean—Remove any punctuation and/or tokens that aren’t words. Lowercase each word.
+
+4. Count—Count the frequency of each word present in the text.
+
+5. Answer—Return the top 10 (or 20, 50, 100).
+
+`show()` is an action, since it performs the visible work of printing data on the screen. As savvy PySpark programmers, we want to avoid accidentally triggering the chain of computations, so the Spark developers made show() explicit. When building a complicated chain of transformations, triggering its execution is a lot more annoying and time-consuming than having to type the show() method when you’re ready.
+
+That being said, there are some moments, especially when learning, when you want your data frames to be evaluated after each transformation (which we call eager evaluation). Since Spark 2.4.0, you can configure the SparkSession object to support printing to screen. We will cover how to create a SparkSession object in greater detail in chapter 3, but if you want to use eager evaluation in the shell, you can paste the following code in your shell:
+```
+from pyspark.sql import SparkSession
+ 
+spark = (SparkSession.builder
+                     .config("spark.sql.repl.eagerEval.enabled", "True")
+                     .getOrCreate())
+```
+
+# 2.4 Simple column transformations: Moving from a sentence to a list of words
+When ingesting our selected text into a data frame, PySpark created one record for each line of text and provided a value column of type String. To tokenize each word, we need to split each string into a list of distinct words. This section covers simple transformations using select(). We will split our lines of text into words so we can count them.
+```
+Listing 2.10 Splitting our lines of text into arrays or words
+
+from pyspark.sql.functions import split
+ 
+lines = book.select(split(book.value, " ").alias("line"))
+ 
+lines.show(5)
+ 
+# +--------------------+
+# |                line|
+# +--------------------+
+# |[The, Project, Gu...|
+# |                  []|
+# |[This, eBook, is,...|
+# |[almost, no, rest...|
+# |[re-use, it, unde...|
+# +--------------------+
+# only showing top 5 rows
+```
+More specifically, we learn about the following:
+
+1. The select() method and its canonical usage, which is selecting data
+
+2. The alias() method to rename transformed columns
+
+3. Importing column functions from pyspark.sql.functions and using them
+
+# 2.4.1 Selecting specific columns using select()
+In PySpark’s world, a data frame is made out of Column objects, and you perform transformations on them. The most basic transformation is the identity, where you return exactly what was provided to you. If you’ve used SQL in the past, you might think that this sounds like a SELECT statement, and you’d be right! You also get a free pass: the method name is also conveniently named select().
+```
+Listing 2.11 The simplest select statement ever
+
+book.select(book.value)
+```
+PySpark provides for each column in its data frame a dot notation that refers to the column. This is the simplest way to select a column, as long as the name doesn’t contain any funny characters: PySpark will accept $!@# as a column name, but you won’t be able to use the dot notation for this column.
+
+PySpark provides more than one way to select columns. I display the four most common in the next listing.
+```
+Listing 2.12 Selecting the value column from the book data frame
+
+from pyspark.sql.functions import col
+ 
+book.select(book.value)
+book.select(book["value"])
+book.select(col("value"))
+book.select("value")
+```
+The first way to select a column is the trusty dot notation we got acquainted with a few paragraphs ago. The second one uses brackets instead of the dot to name the column. It addresses the $!@# problem since you pass the name of the column as a string.
+
+The third one uses the col function from the pyspark.sql.functions module. The main difference here is that you don’t specify that the column comes from the book data frame. This will become very useful when working with more complex data pipelines in part 2 of the book. I’ll use the col object as much as I can since I consider its usage more idiomatic and it’ll prepare us for more complex use cases, such as performing column transformation (see chapter 4 and 5).
+
+Finally, the fourth one only uses the name of the column as a string. PySpark is smart enough to infer that we mean a column here. For simple select statements (and other methods that I’ll cover later), using the name of the column directly can be a viable option. That being said, it’s not as flexible as the other options, and the moment your code requires column transformations, like in section 2.4.2, you’ll have to use another option.
+
+# 2.4.2 Transforming columns: Splitting a string into a list of words
+PySpark provides a split() function in the pyspark.sql.functions module for splitting a longer string into a list of shorter strings. The most popular use case for this function is to split a sentence into words. The split() function takes two or three parameters:
+
+A column object containing strings
+
+A Java regular expression delimiter to split the strings against
+
+An optional integer about how many times we apply the delimiter (not used here)
+
+```
+Listing 2.13 Splitting our lines of text into lists of words
+
+from pyspark.sql.functions import col, split
+ 
+lines = book.select(split(col("value"), " "))
+ 
+lines
+ 
+# DataFrame[split(value,  , -1): array<string>]
+ 
+lines.printSchema()
+ 
+# root
+#  |-- split(value,  , -1): array (nullable = true)
+#  |    |-- element: string (containsNull = true)
+ 
+lines.show(5)
+ 
+# +--------------------+
+# | split(value,  , -1)|
+# +--------------------+
+# |[The, Project, Gu...|
+# |                  []|
+# |[This, eBook, is,...|
+# |[almost, no, rest...|
+# |[re-use, it, unde...|
+# +--------------------+
+# only showing top 5 rows
+```
+https://spark.apache.org/docs/latest/api/python/_modules/pyspark/sql/functions.html#split
+
+# 2.4.3 Renaming columns: alias and withColumnRenamed
