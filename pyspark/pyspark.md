@@ -1305,3 +1305,258 @@ lines.show(5)
 https://spark.apache.org/docs/latest/api/python/_modules/pyspark/sql/functions.html#split
 
 # 2.4.3 Renaming columns: alias and withColumnRenamed
+There is an implicit assumption that you’ll want to rename the resulting column yourself, using the alias() method. Its usage isn’t very complicated: when applied to a column, it takes a single parameter and returns the column it was applied to, with the new name. A simple demonstration is provided in the next listing.
+```
+Listing 2.14 Our data frame before and after the aliasing
+
+book.select(split(col("value"), " ")).printSchema()
+# root
+#  |-- split(value,  , -1): array (nullable = true)    ❶
+#  |    |-- element: string (containsNull = true)
+ 
+book.select(split(col("value"), " ").alias("line")).printSchema()
+ 
+# root
+#  |-- line: array (nullable = true)                   ❷
+#  |    |-- element: string (containsNull = true)
+```
+❶ Our new column is called split(value, , -1), which isn’t really pretty.
+
+❷ We aliased our column to the name line. Much better!
+
+alias() provides a clean and explicit way to name your columns after you’ve performed work on it. On the other hand, it’s not the only renaming player in town. Another equally valid way to do so is by using the .withColumnRenamed() method on the data frame. It takes two parameters: the current name of the column and the wanted name of the column. Since we’re already performing work on the column with split, chaining alias makes a lot more sense than using another method. Listing 2.15 shows you the two different approaches.
+
+When writing your code, choosing between those two options is pretty easy:
+
+When you’re using a method where you’re specifying which columns you want to appear, like the select() method, use alias().
+
+If you just want to rename a column without changing the rest of the data frame, use .withColumnRenamed. Note that, should the column not exist, PySpark will treat this method as a no-op and not perform anything.
+
+```
+Listing 2.15 Renaming a column, two ways
+
+# This looks a lot cleaner
+lines = book.select(split(book.value, " ").alias("line"))
+# This is messier, and you have to remember the name PySpark assigns automatically
+lines = book.select(split(book.value, " "))
+lines = lines.withColumnRenamed("split(value,  , -1)", "line")
+```
+We have a list of words, but we need each token or word to be its own record:
+
+1. `[DONE]`Read—Read the input data (we’re assuming a plain text file).
+
+2. `[IN PROGRESS]`Token—Tokenize each word.
+
+3. Clean—Remove any punctuation and/or tokens that aren’t words. Lowercase each word.
+
+4. Count—Count the frequency of each word present in the text.
+
+5. Answer—Return the top 10 (or 20, 50, 100).
+
+# 2.4.4 Reshaping your data: Exploding a list into rows
+When working with data, a key element in data preparation is making sure that it “fits the mold”; this means making sure that the structure containing the data is logical and appropriate for the work at hand. At the moment, each record of our data frame contains multiple words into an array of strings. It would be better to have one record for each word.
+
+Enter the `explode()` function. When applied to a column containing a container-like data structure (such as an array), it’ll take each element and give it its own row. This is much easier explained visually rather than using words, and figure 2.4 explains the process.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/813bb192-f4e1-4a22-983e-5e2a48c58a39)
+Figure 2.4 Exploding a data frame of array[String] into a data frame of String. Each element of each array becomes its own record.
+```
+Listing 2.16 Exploding a column of arrays into rows of elements
+
+from pyspark.sql.functions import explode, col
+ 
+words = lines.select(explode(col("line")).alias("word"))
+ 
+words.show(15)
+# +----------+
+# |      word|
+# +----------+
+# |       The|
+# |   Project|
+# | Gutenberg|
+# |     EBook|
+# |        of|
+# |     Pride|
+# |       and|
+# |Prejudice,|
+# |        by|
+# |      Jane|
+# |    Austen|
+# |          |
+# |      This|
+# |     eBook|
+# |        is|
+# +----------+
+# only showing top 15 rows
+```
+Before continuing our data-processing journey, we can take a step back and look at a sample of the data. Just by looking at the 15 rows returned, we can see that Prejudice, has a comma and that the cell between Austen and This contains the empty string. That gives us a good blueprint of the next steps that need to be performed before we start analyzing word frequency.
+Looking back at our five steps, we can now conclude step 2, and our words are tokenized. Let’s attack the third one, where we’ll clean our words to simplify the counting:
+
+1. `[DONE]`Read—Read the input data (we’re assuming a plain text file).
+
+2. `[DONE]`Token—Tokenize each word.
+
+3. Clean—Remove any punctuation and/or tokens that aren’t words. Lowercase each word.
+
+4. Count—Count the frequency of each word present in the text.
+
+5. Answer—Return the top 10 (or 20, 50, 100).
+
+# 2.4.5 Working with words: Changing case and removing punctuation
+Let’s get right to it. Listing 2.17 contains the source code to lower the case of all the words in the data frame. The code should look very familiar: we select a column transformed by lower, a PySpark function lowering the case of the data inside the column passed as a parameter. We then alias the resulting column to word_lower to avoid PySpark’s default nomenclature.
+```
+Listing 2.17 Lower the case of the words in the data frame
+
+from pyspark.sql.functions import lower
+words_lower = words.select(lower(col("word")).alias("word_lower"))
+ 
+words_lower.show()
+ 
+# +-----------+
+# | word_lower|
+# +-----------+
+# |        the|
+# |    project|
+# |  gutenberg|
+# |      ebook|
+# |         of|
+# |      pride|
+# |        and|
+# | prejudice,|
+# |         by|
+# |       jane|
+# |     austen|
+# |           |
+# |       this|
+# |      ebook|
+# |         is|
+# |        for|
+# |        the|
+# |        use|
+# |         of|
+# |     anyone|
+# +-----------+
+# only showing top 20 rows
+```
+Next, we want to clean our words of any punctuation and other non-useful characters; in this case, we’ll keep only the letters using a regular expression (see the end of the section for a reference on regular expressions [or regex]). This can be a little trickier: we won’t improvise a full NLP (Natural Language Processing) library here, and instead rely on the functionality PySpark provides in its data manipulation toolbox. In the spirit of keeping this exercise simple, we’ll keep the first contiguous group of letters as the word, and remove the rest. It will effectively remove punctuation, quotation marks, and other symbols, at the expense of being less robust with more exotic word construction. The next listing shows the code in all its splendor.
+```
+Listing 2.18 Using regexp_extract to keep what looks like a word
+
+from pyspark.sql.functions import regexp_extract
+words_clean = words_lower.select(
+    regexp_extract(col("word_lower"), "[a-z]+", 0).alias("word")   ❶
+)
+ 
+words_clean.show()
+ 
+# +---------+
+# |     word|
+# +---------+
+# |      the|
+# |  project|
+# |gutenberg|
+# |    ebook|
+# |       of|
+# |    pride|
+# |      and|
+# |prejudice|
+# |       by|
+# |     jane|
+# |   austen|
+# |         |
+# |     this|
+# |    ebook|
+# |       is|
+# |      for|
+# |      the|
+# |      use|
+# |       of|
+# |   anyone|
+# +---------+
+# only showing top 20 rows
+```
+❶ We only match for multiple lowercase characters (between a and z). The plus sign (+) will match for one or more occurrences.
+
+Our data frame of words looks pretty regular by now, except for the empty cell between austen and this. In the next section, we cover the filtering operation by removing any empty records.
+
+## Exercise 2.1
+
+Given the following exo_2_1_df data frame, how many records will the solution_ 2_1_df data frame contain? (Note: No need to write code to solve this problem.)
+
+exo_2_1_df.show()
+``` 
+# +-------------------+
+# |            numbers|
+# +-------------------+
+# |    [1, 2, 3, 4, 5]|
+# |[5, 6, 7, 8, 9, 10]|
+# +-------------------+
+```
+ 
+`solution_2_1_df = exo_2_1_df.select(explode(col("numbers")))`
+
+# 2.5 Filtering rows
+Conceptually, we should be able to provide a test to perform on each record. If it returns true, we keep the record. False? You’re out! PySpark provides not one, but two identical methods to perform this task. You can use either .filter() or its alias .where(). This duplication is to ease the transition for users coming from other data-processing engines or libraries; some use one, some the other. PySpark provides both, so no arguments are possible! I prefer filter(), because w maps to more data frame methods (withColumn() in chapter 4 or withColumnRenamed() in chapter 3). If we look at the next listing, we can see that columns can be compared to values using the usual Python comparison operators. In this case, we’re using “not equal,” or `!=`.
+```
+Listing 2.19 Filtering rows in your data frame using where or filter
+
+words_nonull = words_clean.filter(col("word") != "")
+ 
+words_nonull.show()
+ 
+# +---------+
+# |     word|
+# +---------+
+# |      the|
+# |  project|
+# |gutenberg|
+# |    ebook|
+# |       of|
+# |    pride|
+# |      and|
+# |prejudice|
+# |       by|
+# |     jane|
+# |   austen|
+# |     this|     ❶
+# |    ebook|
+# |       is|
+# |      for|
+# |      the|
+# |      use|
+# |       of|
+# |   anyone|
+# | anywhere|
+# +---------+
+# only showing top 20 rows
+```
+❶ The blank cell is gone!
+
+`TIP` If you want to negate a whole expression in a filter() method, PySpark provides the ~ operator. We could theoretically use filter(~(col("word") == "")). Look at the exercises at the end of the chapter to see them in an application. You can also use SQL-style expression; check out chapter 7 for an alternative syntax.
+
+We’re ready for counting and displaying the results of our analysis:
+
+1. `[DONE]`Read—Read the input data (we’re assuming a plain text file).
+
+2. `[DONE]`Token—Tokenize each word.
+
+3. `[DONE]`Clean—Remove any punctuation and/or tokens that aren’t words. Lowercase each word.
+
+4. Count—Count the frequency of each word present in the text.
+
+5. Answer—Return the top 10 (or 20, 50, 100).
+
+## Summary
+Almost all PySpark programs will revolve around three major steps: reading, transforming, and exporting data.
+
+PySpark provides a REPL (read, evaluate, print, loop) via the pyspark shell where you can experiment interactively with data.
+
+PySpark data frames are a collection of columns. You operate on the structure using chained transformations. PySpark will optimize the transformations and perform the work only when you submit an action, such as show(). This is one of the pillars of PySpark’s performance.
+
+PySpark’s repertoire of functions that operate on columns is located in pyspark .sql.functions.
+
+You can select columns or transformed columns via the select() method.
+
+You can filter columns using the where() or filter() methods and by providing a test that will return True or False; only the records returning True will be kept.
+
+PySpark can have columns of nested values, like arrays of elements. In order to extract the elements into distinct records, you need to use the explode() method.
