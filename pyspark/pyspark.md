@@ -1740,4 +1740,223 @@ part-00000-f8c4c13e-a4ee-4900-ac76-de3d56e5f091-c000.csv
 `NOTE` You might have realized that we’re not ordering the file before writing it. Since our data here is pretty small, we could have written the words by decreasing order of frequency. If you have a large data set, this operation will be quite expensive. Furthermore, since reading is a potentially distributed operation, what guarantees that it’ll get read the same way? Never assume that your data frame will keep the same ordering of records unless you explicitly ask via orderBy() right before the showing step.
 
 # 3.4 Putting it all together: Counting
+The REPL allows you to go back in history using the directional arrows on your keyboard, just like a regular Python REPL. To make things a bit easier, I am providing the step-by-step program in the next listing. This section is dedicated to streamlining and making our code more succinct and readable.
+```
+Listing 3.5 Our first PySpark program, dubbed “Counting Jane Austen”
 
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import (
+    col,
+    explode,
+    lower,
+    regexp_extract,
+    split,
+)
+ 
+spark = SparkSession.builder.appName(
+    "Analyzing the vocabulary of Pride and Prejudice."
+).getOrCreate()
+ 
+book = spark.read.text("./data/gutenberg_books/1342-0.txt")
+ 
+lines = book.select(split(book.value, " ").alias("line"))
+ 
+words = lines.select(explode(col("line")).alias("word"))
+ 
+words_lower = words.select(lower(col("word")).alias("word"))
+ 
+words_clean = words_lower.select(
+    regexp_extract(col("word"), "[a-z']*", 0).alias("word")
+)
+ 
+words_nonull = words_clean.where(col("word") != "")
+ 
+results = words_nonull.groupby(col("word")).count()
+ 
+results.orderBy("count", ascending=False).show(10)
+ 
+results.coalesce(1).write.csv("./simple_count_single_partition.csv")
+```
+
+# 3.4.1 Simplifying your dependencies with PySpark’s import conventions
+This program uses five distinct functions from the pyspark.sql.functions modules. We should probably replace this with a qualified import, which is Python’s way of importing a module by assigning a keyword to it. While there is no hard rule, the common wisdom is to use F to refer to PySpark’s functions. The next listing shows the before and after.
+```
+Listing 3.6 Simplifying our PySpark functions import
+
+# Before
+from pyspark.sql.functions import col, explode, lower, regexp_extract, split
+ 
+# After
+import pyspark.sql.functions as F
+```
+Since `col`, `explode`, `lower`, `regexp_extract`, and `split` are all in pyspark.sql.functions, we can import the whole module. Since the new import statement imports the entirety of the `pyspark.sql.functions module`, we assign the keyword (or key letter) F. The PySpark community seems to have implicitly settled on using `F` for `pyspark.sql.functions`, and I encourage you to do the same. It’ll make your programs consistent, and since many functions in the module share their name with pandas or Python built-in functions, you’ll avoid name clashes. Each function application in the program will then be prefixed by `F`, just like with regular Python-qualified imports.
+
+`WARNING` It can be very tempting to start an `import like from pyspark.sql.functions import *`. Do not fall into that trap! It’ll make it hard for your readers to know which functions come from PySpark and which come from regular Python. In chapter 8, where we’ll use user-defined functions (UDFs), this separation will become even more important. This is a good coding hygiene rule!
+
+# 3.4.2 Simplifying our program via method chaining
+If we look at the transformation methods we applied to our data frames (`select()`, `where()`, `groupBy()`, and `count()`), they all have something in common: they take a structure as a parameter—the data frame or `GroupedData` in the case of `count()`—and return a structure. All transformations can be seen as pipes that ingest a structure and return a modified structure. This section will look at method chaining and how it makes a program less verbose and thus easier to read by eliminating intermediate variables.
+
+In PySpark, every transformation returns an object, which is why we need to assign a variable to the result. This means that PySpark doesn’t perform modifications in place.
+We can avoid intermediate variables by chaining the results of one method to the next. Since each transformation returns a data frame (or GroupedData, when we perform the groupby() method), we can directly append the next method without assigning the result to a variable. This means that we can eschew all but one variable assignment. The code in the next listing shows the before and after. Note that we also added the F prefix to our functions to respect the import convention we outlined in section 3.4.1.
+```
+Listing 3.7 Removing intermediate variables by chaining transformation methods
+
+# Before
+book = spark.read.text("./data/gutenberg_books/1342-0.txt")
+ 
+lines = book.select(split(book.value, " ").alias("line"))
+ 
+words = lines.select(explode(col("line")).alias("word"))
+ 
+words_lower = words.select(lower(col("word")).alias("word"))
+ 
+words_clean = words_lower.select(
+    regexp_extract(col("word"), "[a-z']*", 0).alias("word")
+)
+ 
+words_nonull = words_clean.where(col("word") != "")
+ 
+results = words_nonull.groupby("word").count()
+ 
+# After
+import pyspark.sql.functions as F
+ 
+results = (
+    spark.read.text("./data/gutenberg_books/1342-0.txt")
+    .select(F.split(F.col("value"), " ").alias("line"))
+    .select(F.explode(F.col("line")).alias("word"))
+    .select(F.lower(F.col("word")).alias("word"))
+    .select(F.regexp_extract(F.col("word"), "[a-z']*", 0).alias("word"))
+    .where(F.col("word") != "")
+    .groupby("word")
+    .count()
+)
+```
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/f0e42c42-1aba-43ad-9eea-7ce142054e50)
+
+Listing 3.3 Method chaining eliminates the need for intermediate variables.
+I am not saying that intermediate variables are evil and are to be avoided. But they can hinder your code readability, so you have to make sure they serve a purpose. A lot of burgeoning PySpark developers make it a habit of always writing on top of the same variable. While not dangerous in itself, it makes the code redundant and harder to reason about. If you see yourself doing something like the first two lines of the next listing, chain your methods. You’ll get the same result and more aesthetically pleasing code.
+```
+Listing 3.8 Chaining for writing over the same variable
+
+df = spark.read.text("./data/gutenberg_books/1342-0.txt")     ❶
+df = df.select(F.split(F.col("value"), " ").alias("line"))    ❶
+  
+df = (
+       spark.read.text("./data/gutenberg_books/1342-0.txt")   ❷
+       .select(F.split(F.col("value"), " ").alias("line"))    ❷
+     )
+```
+❶ Instead of doing this . . .
+
+❷ . . . you can do this—no variable repetition!
+Make your life easier by using Python’s parentheses
+If you look at the “after” code in listing 3.7, you’ll notice that I start the right side of the equal sign with an opening parenthesis (`spark = ( [...]`). This is a trick I use when I need to chain methods in Python. If you don’t wrap your result into a pair of parentheses, you’ll need to add a `\` character at the end of each line, which adds visual noise to your program. PySpark code is especially prone to line breaks when you use method chaining:
+```
+results = spark\
+          .read.text('./data/ch02/1342-0.txt')\
+          ...
+```
+
+# 3.5 Using spark-submit to launch your program in batch mode
+Unlike the interactive REPL, where the choice of language triggers the program to run, as in listing 3.10, we see that Spark provides a single program, named spark-submit, to submit Spark (Scala, Java, SQL), PySpark (Python), and SparkR (R) programs. The full code for our program is available on the book’s repository under code/Ch02/word_count_submit.py.
+```
+Listing 3.9 Submitting our job in batch mode
+
+$ spark-submit ./code/Ch03/word_count_submit.py
+ 
+# [...]
+# +----+-----+
+# |word|count|
+# +----+-----+
+# | the| 4480|
+# |  to| 4218|
+# |  of| 3711|
+# | and| 3504|
+# | her| 2199|
+# |   a| 1982|
+# |  in| 1909|
+# | was| 1838|
+# |   i| 1749|
+# | she| 1668|
+# +----+-----+
+# only showing top 10 rows
+# [...]
+```
+
+`TIP` If you get a deluge of INFO messages, don’t forget that you have control over this: use `spark.sparkContext.setLogLevel("WARN")` right after your spark definition. If your local configuration has `INFO` as a default, you’ll still get a slew of messages until it catches this line, but it won’t obscure your results.
+
+# 3.6 What didn’t happen in this chapter
+Chapter 2 and 3 were pretty dense. We learned how to read text data, process it to answer any question, display the results on the screen, and write them to a CSV file. On the other hand, there are many elements we left out on purpose. Let’s quickly look at what we didn’t do in this chapter.
+
+Except for coalescing the data frame to write it into a single file, we didn’t do much with the distribution of the data. We saw in chapter 1 that PySpark distributes data across multiple worker nodes, but our code didn’t pay much attention to this. Not having to constantly think about partitions, data locality, and fault tolerance made our data discovery process much faster.
+
+We didn’t spend much time configuring PySpark. Other than providing a name for our application, no additional configuration was inputted in our SparkSession. It’s not to say we’ll never broach this, but we can start with a bare-bones configuration and tweak as we go. The subsequent chapters will customize the SparkSession to optimize resources (chapter 11) or create connectors to external data repositories (chapter 9).
+
+Finally, we didn’t obsess about planning the order of operations as it relates to processing, focusing instead on readability and logic. We made a point to describe our transformations as logically as they appear to us, and we’re letting Spark optimize this into efficient processing steps. We could potentially reorder some and get the same output, but our program reads well, is easy to reason about, and works correctly.
+
+This echoes the statement I made in chapter 1: PySpark is remarkable not only in what it provides, but also in what it can abstract over. You most often can write your code as a sequence of transformations that will get you to your destination most of the time. For those cases where you want a more finely tuned performance or more control over the physical layout of your data, we’ll see in part 3 that PySpark won’t hold you back. Because Spark is in constant evolution, there are still cases where you need to be a little more careful about how your program translates to physical execution on the cluster. For this, chapter 11 covers the Spark UI, which shows you the work being performed on your data and how you can influence processing.
+
+# 3.7 Scaling up our word frequency program
+That example wasn’t big data. I’ll be the first to say it.
+
+Teaching big data processing has a catch-22. While I want to show the power of PySpark to work with massive data sets, I don’t want you to purchase a cluster or rack up a massive cloud bill. It’s easier to show you the ropes using a smaller set of data, knowing that we can scale using the same code.
+
+Let’s take our word-counting example: How can we scale this to a larger corpus of text? Let’s download more files from Project Gutenberg and place them in the same directory:
+```
+$ ls -1 data/gutenberg_books
+ 
+11-0.txt
+1342-0.txt
+1661-0.txt
+2701-0.txt
+30254-0.txt
+84-0.txt
+```
+While this is not enough to claim “we’re doing big data,” it’ll be enough to explain the general concept. If you want to scale, you can use appendix B to provision a powerful cluster on the cloud, download more books or other text files, and run the same program for a few dollars.
+
+We modify our `word_count_submit.py` in a very subtle way. Where we `.read.text()`, we’ll change the path to account for all files in the directory. The next listing shows the before and after: we are only changing the `1342-0.txt` to a `*.txt`, which is called a glob pattern. The `*` means that Spark selects all the `.txt` files in the directory.
+```
+Listing 3.10 Scaling our word count program using the glob pattern
+
+# Before
+results = spark.read.text('./data/gutenberg_books/1342-0.txt')    ❶
+ 
+# After
+results = spark.read.text('./data/gutenberg_books/*.txt')         ❷
+```
+❶ Here we have a single file passed as a parameter . . .
+
+❷ . . . and here the star (or glob) picks all the text files within the directory.
+
+`NOTE` You can also just pass the name of the directory if you want PySpark to ingest all the files within the directory.
+
+The results of running the program over all the files in the directory are available in the following listing.
+```
+Listing 3.11 Results of scaling our program to multiple files
+
+$ spark-submit ./code/Ch02/word_count_submit.py
+ 
++----+-----+
+|word|count|
++----+-----+
+| the|38895|
+| and|23919|
+|  of|21199|
+|  to|20526|
+|   a|14464|
+|   i|13973|
+|  in|12777|
+|that| 9623|
+|  it| 9099|
+| was| 8920|
++----+-----+
+only showing top 10 rows
+```
+
+# Summary
+1. You can group records using the `groupby` method, passing the column names you want to group against as a parameter. This returns a `GroupedData` object that waits for an aggregation method to return the results of computation over the groups, such as the `count()` of records.
+2. PySpark’s repertoire of functions that operates on columns is located in `pyspark.sql.functions`. The unofficial but well-respected convention is to qualify this import in your program using the `F` keyword.
+3. When writing a data frame to a file, PySpark will create a directory and put one file per partition. If you want to write a single file, use the `coaslesce(1)` method.
+4. To prepare your program to work in batch mode via `spark-submit`, you need to create a SparkSession. PySpark provides a builder pattern in the `pyspark.sql` module.
+5. If your program needs to scale across multiple files within the same directory, you can use a glob pattern to select many files at once. PySpark will collect them in a single data frame.
