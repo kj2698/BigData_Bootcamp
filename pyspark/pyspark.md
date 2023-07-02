@@ -1560,3 +1560,184 @@ You can select columns or transformed columns via the select() method.
 You can filter columns using the where() or filter() methods and by providing a test that will return True or False; only the records returning True will be kept.
 
 PySpark can have columns of nested values, like arrays of elements. In order to extract the elements into distinct records, you need to use the explode() method.
+
+# 3 Submitting and scaling your first PySpark program
+
+This chapter covers
+
+Summarizing data using groupby and a simple aggregate function
+Ordering results for display
+Writing data from a data frame
+Using spark-submit to launch your program in batch mode
+Simplifying PySpark writing using method chaining
+Scaling your program to multiple files at once
+
+# 3.1 Grouping records: Counting word frequencies
+Intuitively, we count the number of each word by creating groups: one for each word. Once those groups are formed, we can perform an aggregation function on each one of them. In this specific case, we count the number of records for each group, which will give us the number of occurrences for each word in the data frame. Under the hood, PySpark represents a grouped data frame in a GroupedData object; think of it as a transitional object that awaits an aggregation function to become a transformed data frame.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/31396941-3bdb-44f3-9303-b37f7691cf80)
+
+Listing 3.1 A schematic representation of our groups object. Each small box represents a record.
+
+The easiest way to count record occurrence is to use the groupby() method, passing the columns we wish to group as a parameter. The groupby() method in listing 3.1 returns a GroupedData and awaits further instructions. Once we apply the count() method, we get back a data frame containing the grouping column word, as well as the count column containing the number of occurrences for each word.
+
+```
+Listing 3.1 Counting word frequencies using groupby() and count()
+
+groups = words_nonull.groupby(col("word"))
+ 
+print(groups)
+ 
+# <pyspark.sql.group.GroupedData at 0x10ed23da0>
+ 
+results = words_nonull.groupby(col("word")).count()
+ 
+print(results)
+ 
+# DataFrame[word: string, count: bigint]
+ 
+results.show()
+ 
+# +-------------+-----+
+# |         word|count|
+# +-------------+-----+
+# |       online|    4|
+# |         some|  203|
+# |        still|   72|
+# |          few|   72|
+# |         hope|  122|
+# [...]
+# |       doubts|    2|
+# |    destitute|    1|
+# |    solemnity|    5|
+# |gratification|    1|
+# |    connected|   14|
+# +-------------+-----+
+# only showing top 20 rows
+```
+Peeking at the results data frame in listing 3.1, we see that the results are in no specific order. As a matter of fact, I’d be very surprised if you had the exact same order of words that I do! This has to do with how PySpark manages data. In chapter 1, we learned that PySpark distributes the data across multiple nodes. When performing a grouping function, such as groupby(), each worker performs the work on its assigned data. groupby() and count() are transformations, so PySpark will queue them lazily until we request an action. When we pass the show method to our results data frame, it triggers the chain of computation that we see in figure 3.2.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/a6bdf2be-1d02-4b94-906a-dc61ddd92b1b)
+
+Listing 3.2 A distributed group by on our words_nonull data frame. The work is performed in a distributed fashion until we need to assemble the results in a cohesive display via show().
+
+`TIP` If you need to create groups based on the values of multiple columns, you can pass multiple columns as parameters to groupby(). We see this in action in chapter 5.
+
+## Exercise 3.1
+
+Starting with the word_nonull seen in this section, which of the following expressions would return the number of words per letter count (e.g., there are X one-letter words, Y two-letter words, etc.)?
+
+Assume that pyspark.sql.functions.col, pyspark.sql.functions.length are imported.
+
+a) words_nonull.select(length(col("word"))).groupby("length").count()
+
+b) words_nonull.select(length(col("word")).alias("length")).groupby("length").count()
+
+c) words_nonull.groupby("length").select("length").count()
+
+d) None of those options would work.
+
+# 3.2 Ordering the results on the screen using orderBy
+Just like we use groupby() to group a data frame by the values in one or many columns, we use orderBy() to order a data frame by the values of one or many columns. PySpark provides two different syntaxes to order records:
+
+We can provide the column names as parameters, with an optional `ascending` parameter. By default, we order a data frame in ascending order; by setting `ascending` to false, we reverse the order, getting the largest values first.
+
+Or we can use the Column object directly, via the col function. When we want to reverse the ordering, we use the `desc()` method on the column.
+
+PySpark orders the data frame using each column, one at a time. If you pass multiple columns (see chapter 5), PySpark uses the first column’s values to order the data frame, then the second (and then third, etc.) when there are identical values. Since we have a single column—and no duplicates because of groupby()—the application of orderBy() in the next listing is simple, regardless of the syntax we pick.
+```
+Listing 3.2 Displaying the top 10 words in Jane Austen’s Pride and Prejudice
+
+results.orderBy("count", ascending=False).show(10)
+results.orderBy(col("count").desc()).show(10)
+ 
+# +----+-----+
+# |word|count|
+# +----+-----+
+# | the| 4480|
+# |  to| 4218|
+# |  of| 3711|
+# | and| 3504|
+# | her| 2199|
+# |   a| 1982|
+# |  in| 1909|
+# | was| 1838|
+# |   i| 1749|
+# | she| 1668|
+# +----+-----+
+# only showing top 10 rows
+```
+
+PySpark’s method naming convention zoo
+
+If you are detail-oriented, you might have noticed we used `groupby` (lowercase), but `orderBy` (lowerCamelCase, where you capitalize the first letter of each word but the first word). This seems like an odd design choice.
+
+groupby() is an alias for `groupBy()`, just like `where()` is an alias of `filter()`. I guess that the PySpark developers found that a lot of typing mistakes were avoided by accepting the two cases. `orderBy()` didn’t have that luxury, for a reason that escapes my understanding, so we need to be mindful of this.
+
+Part of this incoherence is due to Spark’s heritage. Scala prefers camelCase for methods. On the other hand, we saw `regexp_extract`, which uses Python’s preferred snake_case (words separated by an underscore) in chapter 2. There is no magic secret here: you’ll have to be mindful of the different case conventions at play in PySpark.
+
+It’s much better to save those results to a file so that we’ll be able to reuse them without having to compute everything each time. The next section covers writing a data frame to a file.
+
+## Exercise 3.2
+```
+Why isn’t the order preserved in the following code block?
+
+(
+    results.orderBy("count", ascending=False)
+    .groupby(length(col("word")))
+    .count()
+    .show(5)
+)
+# +------------+-----+
+# |length(word)|count|
+# +------------+-----+
+# |          12|  199|
+# |           1|   10|
+# |          13|  113|
+# |           6|  908|
+# |          16|    4|
+# +------------+-----+
+# only showing top 5 rows
+```
+
+# 3.3 Writing data from a data frame
+Just like we use read() and the SparkReader to read data in Spark, we use write() and the SparkWriter object to write back our data frame to disk. In listing 3.3, I specialize the SparkWriter to export text into a CSV file, naming the output simple_count.csv. If we look at the results, we can see that PySpark didn’t create a results.csv file. Instead, it created a directory of the same name, and put 201 files inside the directory (200 CSVs + 1 _SUCCESS file).
+```
+Listing 3.3 Writing our results in multiple CSV files, one per partition
+
+results.write.csv("./data/simple_count.csv")
+ 
+# The ls command is run using a shell, not a Python prompt.
+# If you use IPython, you can use the bang pattern (! ls -1).
+# Use this to get the same results without leaving the IPython console.
+ 
+$ ls -1 ./data/simple_count.csv                               ❶
+ 
+_SUCCESS                                                      ❷
+part-00000-615b75e4-ebf5-44a0-b337-405fccd11d0c-c000.csv
+[...]
+part-00199-615b75e4-ebf5-44a0-b337-405fccd11d0c-c000.csv      ❸
+```
+❶ The results are written in a directory called simple_count.csv.
+
+❷ The _SUCCESS file means the operation was successful.
+
+❸ We have part-00000 to part-00199, which means our results are split across 200 files.
+
+There it is, folks! The first moment where we have to care about PySpark’s distributed nature. Just like PySpark will distribute the transformation work across multiple workers, it’ll do the same for writing data. While it might look like a nuisance for our simple program, it is tremendously useful when working in distributed environments. When you have a large cluster of nodes, having many smaller files makes it easy to logically distribute reading and writing the data, making it way faster than having a single massive file.
+
+By default, PySpark will give you one file per partition. This means that our program, as run on my machine, yields 200 partitions at the end. This isn’t the best for portability. To reduce the number of partitions, we apply the `coalesce()` method with the desired number of partitions. The next listing shows the difference when using `coalesce(1)` on our data frame before writing to disk. We still get a directory, but there is a single CSV file inside of it. Mission accomplished!
+```
+Listing 3.4 Writing our results under a single partition
+
+results.coalesce(1).write.csv("./data/simple_count_single_partition.csv")
+ 
+$ ls -1 ./data/simple_count_single_partition.csv/
+ 
+_SUCCESS
+part-00000-f8c4c13e-a4ee-4900-ac76-de3d56e5f091-c000.csv
+```
+`NOTE` You might have realized that we’re not ordering the file before writing it. Since our data here is pretty small, we could have written the words by decreasing order of frequency. If you have a large data set, this operation will be quite expensive. Furthermore, since reading is a potentially distributed operation, what guarantees that it’ll get read the same way? Never assume that your data frame will keep the same ordering of records unless you explicitly ask via orderBy() right before the showing step.
+
+# 3.4 Putting it all together: Counting
+
