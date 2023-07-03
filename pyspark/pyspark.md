@@ -1905,6 +1905,7 @@ That example wasn’t big data. I’ll be the first to say it.
 Teaching big data processing has a catch-22. While I want to show the power of PySpark to work with massive data sets, I don’t want you to purchase a cluster or rack up a massive cloud bill. It’s easier to show you the ropes using a smaller set of data, knowing that we can scale using the same code.
 
 Let’s take our word-counting example: How can we scale this to a larger corpus of text? Let’s download more files from Project Gutenberg and place them in the same directory:
+https://github.com/jonesberg/DataAnalysisWithPythonAndPySpark/tree/trunk
 ```
 $ ls -1 data/gutenberg_books
  
