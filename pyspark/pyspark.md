@@ -1850,6 +1850,7 @@ df = (
 ❶ Instead of doing this . . .
 
 ❷ . . . you can do this—no variable repetition!
+
 Make your life easier by using Python’s parentheses
 If you look at the “after” code in listing 3.7, you’ll notice that I start the right side of the equal sign with an opening parenthesis (`spark = ( [...]`). This is a trick I use when I need to chain methods in Python. If you don’t wrap your result into a pair of parentheses, you’ll need to add a `\` character at the end of each line, which adds visual noise to your program. PySpark code is especially prone to line breaks when you use method chaining:
 ```
