@@ -1963,3 +1963,35 @@ only showing top 10 rows
 3. When writing a data frame to a file, PySpark will create a directory and put one file per partition. If you want to write a single file, use the `coaslesce(1)` method.
 4. To prepare your program to work in batch mode via `spark-submit`, you need to create a SparkSession. PySpark provides a builder pattern in the `pyspark.sql` module.
 5. If your program needs to scale across multiple files within the same directory, you can use a glob pattern to select many files at once. PySpark will collect them in a single data frame.
+
+# 4 Analyzing tabular data with pyspark.sql
+This chapter covers
+
+Reading delimited data into a PySpark data frame
+Understanding how PySpark represents tabular data in a data frame
+Ingesting and exploring tabular or relational data
+Selecting, manipulating, renaming, and deleting columns in a data frame
+Summarizing data frames for quick exploration
+
+Our first example in chapters 2 and 3 worked with unstructured textual data. Each line of text was mapped to a record in a data frame, and, through a series of transformations, we counted word frequencies from one (and multiple) text files. This chapter goes deeper into data transformation, this time using structured data. Data comes in many shapes and forms: we start with relational (or tabular,1 or row and columns) data, one of the most common formats popularized by SQL and Excel. This chapter and the next follow the same blueprint as we did with our first data analysis. We use the public Canadian television schedule data to identify and measure the proportion of commercials over its total programming.
+
+Just like with every PySpark program, we start by initializing our `SparkSession` object, as in the next listing. I also proactively import the `pyspark.sql.functions` as a qualified F, since we saw in chapter 3 that it helps with readability and avoiding potential name clashes for functions.
+
+```
+Listing 4.1 Creating our SparkSession object to start using PySpark
+
+from pyspark.sql import SparkSession
+import pyspark.sql.functions as F
+ 
+spark = SparkSession.builder.getOrCreate()
+```
+
+# 4.1 What is tabular data?
+We call data tabular when we represent it in a two-dimensional table. You have cells, each containing a single (or simple) value, organized into rows and columns. A good example is your grocery list: you may have one column for the item you wish to purchase, one for the quantity, and one for the expected price. Figure 4.1 provides an example of a small grocery list. We have the three columns mentioned, as well as four rows, each representing an entry in our grocery list.
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/319cdd57-2671-475b-a574-dbc494d631ea)
+
+The easiest analogy we can make for tabular data is the spreadsheet format: the interface provides you with a large number of rows and columns where you can input and perform computations on data. SQL databases can be thought of as tables made up of rows and columns. Tabular data is an extremely common data format, and because it’s so popular and easy to reason about, it makes for a perfect first dive into PySpark’s data manipulation API.
+
+PySpark’s data frame structure maps very naturally to tabular data. In chapter 2, I explain that PySpark operates either on the whole data frame structure (via methods such as select() and groupby()) or on Column objects (e.g., when using a function like split()). The data frame is column-major, so its API focuses on manipulating the columns to transform the data. Because of this, we can simplify how we reason about data transformations by thinking about what operations to perform and which columns will be impacted by them.
+
+**NOTE** The resilient distributed dataset, briefly introduced in chapter 1, is a good example of a structure that is row-major. Instead of thinking about columns, you are thinking about items (rows) with attributes in which you apply functions. It’s an alternative way of thinking about your data, and chapter 8 contains more information about where/when it can be useful.
