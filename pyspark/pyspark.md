@@ -1994,4 +1994,194 @@ The easiest analogy we can make for tabular data is the spreadsheet format: the 
 
 PySpark’s data frame structure maps very naturally to tabular data. In chapter 2, I explain that PySpark operates either on the whole data frame structure (via methods such as select() and groupby()) or on Column objects (e.g., when using a function like split()). The data frame is column-major, so its API focuses on manipulating the columns to transform the data. Because of this, we can simplify how we reason about data transformations by thinking about what operations to perform and which columns will be impacted by them.
 
-**NOTE** The resilient distributed dataset, briefly introduced in chapter 1, is a good example of a structure that is row-major. Instead of thinking about columns, you are thinking about items (rows) with attributes in which you apply functions. It’s an alternative way of thinking about your data, and chapter 8 contains more information about where/when it can be useful.
+`**NOTE**` The resilient distributed dataset, briefly introduced in chapter 1, is a good example of a structure that is row-major. Instead of thinking about columns, you are thinking about items (rows) with attributes in which you apply functions. It’s an alternative way of thinking about your data, and chapter 8 contains more information about where/when it can be useful.
+
+# 4.1.1 How does PySpark represent tabular data?
+In chapters 2 and 3, our data frame always contained a single column, up to the very end when we counted the occurrence of each word. In other words, we took unstructured data (a body of text), performed some transformations, and created a two-column table containing the information we wanted. Tabular data is, in a way, an extension of this, where we have more than one column to work with.
+
+Let’s take my very healthy grocery list as an example, and load it into PySpark. To make things simple, we’ll encode our grocery list into a list of lists. PySpark has multiple ways to import tabular data, but the two most popular are the list of lists and the pandas data frame. In chapter 9, I briefly cover how to work with pandas. It would be a bit overkill to import a library just for loading four records (four items on our grocery list), so I kept it in a list of lists.
+```
+Listing 4.2 Creating a data frame out of our grocery list
+
+my_grocery_list = [
+    ["Banana", 2, 1.74],
+    ["Apple", 4, 2.04],
+    ["Carrot", 1, 1.09],
+    ["Cake", 1, 10.99],
+]                                        ❶
+  
+df_grocery_list = spark.createDataFrame(
+    my_grocery_list, ["Item", "Quantity", "Price"]
+)
+ 
+df_grocery_list.printSchema()
+# root
+#  |-- Item: string (nullable = true)    ❷
+#  |-- Quantity: long (nullable = true)  ❷
+#  |-- Price: double (nullable = true)   ❷
+```
+❶ My grocery list is encoded in a list of lists.
+
+❷ PySpark automatically inferred the type of each field from the information Python had about each value.
+
+We can easily create a data frame from the data in our program with the `spark.createDataFrame` function, as listing 4.2 shows. Our first parameter is the data itself. You can provide a list of items (here, a list of lists), a pandas data frame, or a resilient distributed dataset, which I cover in chapter 8. The second parameter is the schema of the data frame. Chapter 6 covers the automatic and manual schema definitions in greater depth. In the meantime, passing a list of column names will make PySpark happy while it infers the types (`string`, `long`, and `double`, respectively) of our columns. Visually, the data frame will look like figure 4.2, although much more simplified. The master node knows about the structure of the data frame, but the actual data is represented on the worker nodes. Each column maps to data stored somewhere on our cluster that is managed by PySpark. We operate on the abstract structure and let the master delegate the work efficiently.
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/1661f78d-e378-4987-8dc4-42bbf455b80a)
+
+Figure 4.2 Each column of our data frame maps to some place on our worker nodes.
+
+PySpark gladly represented our tabular data using our column definitions. This means that all the functions we’ve learned so far apply to our tabular data. By having one flexible structure for many data representations—we’ve covered text and tabular so far—PySpark makes it easy to move from one domain to another. It removes the need to learn yet another set of functions and a whole new abstraction for our data.
+
+This section covered the look and feel of a simple two-dimensional/tabular data frame. In the next section, we ingest and process a more significant data frame. It’s time for some coding!
+
+# 4.2 PySpark for analyzing and processing tabular data
+My grocery list was fun, but the potential for analysis work is pretty limited. We’ll get our hands on a larger data set, explore it, and ask a few introductory questions that we might find interesting. This process is called exploratory data analysis (or EDA) and is usually the first step data analysts and scientists undertake when placed in front of new data. Our goal is to get familiar with the data discovery functions and methods, as well as with performing some basic data assembly. Being familiar with those steps will remove the awkwardness of working with data you won’t see transforming before your eyes. This section shows you a blueprint you can reuse when facing new data frames until you can visually process millions of records per second.
+
+Graphical exploratory data analysis
+
+A lot of the EDA work you’ll see in the wild incorporates charts and/or tables. Does this mean that PySpark has the option to do the same?
+
+We saw in chapter 2 how to print a data frame so that we can view the content at a glance. This still applies to summarizing information and displaying it on the screen. If you want to export the table in an easy-to-process format (e.g., to incorporate it in a report), you can use spark.write.csv, making sure you coalesce the data frame in a single file. (See chapter 3 for a refresher on coalesce().) By its very nature, table summaries won’t be very large, so you won’t risk running out of memory.
+
+PySpark doesn’t provide any charting capabilities and doesn’t play with other charting libraries (like Matplotlib, seaborn, Altair, or plot.ly), and this makes a lot of sense: PySpark distributes your data over many computers. It doesn’t make much sense to distribute a chart creation. The usual solution will be to transform your data using PySpark, use the toPandas() method to transform your PySpark data frame into a pandas data frame, and then use your favorite charting library. When using charts, I provide the code I used to generate them.
+
+When using toPandas(), remember that you lose the advantages of working with multiple machines, as the data will accumulate on the driver. Reserve this operation for an aggregated or manageable data set. While this is a crude formula, I usually take the number of rows times the number of columns; if this number is over 100,000 (for a 16 GB driver), I try to reduce it further. This simple trick helps me get a sense of the size of the data I am dealing with, as well as what’s possible given my driver size.
+
+You do not want to move your data between a pandas and a PySpark data frame all the time. Reserve toPandas() for either discrete operations or for moving your data into a pandas data frame once and for all. Moving back and forth will yield a ton of unnecessary work in distributing and collecting the data for nothing. If you need pandas functionality on a Spark data frame, check out pandas UDFs in chapter 9.
+
+For this exercise, we’ll use some open data from the government of Canada, more specifically the CRTC (Canadian Radio-Television and Telecommunications Commission). Every broadcaster is mandated to provide a complete log of the programs and commercials showcased to the Canadian public. This gives us a lot of potential questions to answer, but we’ll select just one: What are the channels with the greatest and least proportion of commercials?
+
+You can download the file on the Canada Open Data portal (http://mng.bz/y4YJ); select the BroadcastLogs_2018_Q3_M8 file. The file is 994 MB to download, which might be too large, depending on your computer. The book’s repository contains a sample of the data under the data/broadcast_logs directory, which you can use in place of the original file. You also need to download the Data Dictionary in .doc form, as well as the Reference Tables zip file, unzipping them into a ReferenceTables directory in data/ broadcast_logs. Once again, the examples assume that the data is downloaded under data/broadcast_logs and that PySpark is launched from the root of the repository.
+
+Before moving to the next section, make sure you have the following. With the exception of the large BroadcastLogs file, the rest is in the repository:
+
+data/BroadcastLogs_2018_Q3_M8.CSV (either download from the website or use the sample from the repo)
+
+data/broadcast_logs/ReferenceTables
+
+data/broadcast_logs/data_dictionary.doc
+
+# 4.3 Reading and assessing delimited data in PySpark
+Now that we have tested the waters with a small synthetic tabular data set, we are ready to dive into real data. Just like in chapter 3, our first step is to read the data before we can perform exploration and transformation. This time, we read data that is a little more complex than just some unorganized text. Because of this, I cover the `SparkReader` usage in more detail. As the two-dimensional table is one of the most common organization formats, knowing how to ingest tabular or relational data will become second nature very quickly.
+
+`TIP` Relational data is often in a SQL database. Spark can read from SQL (or SQL-like) data stores very easily: check chapter 9 for an example where I read from Google BigQuery.
+
+In this section, I start by covering the usage of the `SparkReader` for delimited data, or data that is separated by a delimited character (to create this second dimension), by applying it to one of the CRTC data tables. I then review the most common reader’s options, so you can read other types of delimited files with ease.
+
+# 4.3.1 A first pass at the SparkReader specialized for CSV files
+The CSV file format stems from a simple idea: we use text, separated in two-dimensional records (rows and columns), that are separated by two types of delimiters. Those delimiters are characters, but they serve a special purpose when applied in the context of a CSV file:
+
+The first one is a row delimiter. The row delimiter splits the file into logical records. There is one and only one record between delimiters.
+
+The second one is a field delimiter. Each record is made up of an identical number of fields, and the field delimiter tells where one field starts and ends.
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/3320dba5-27fc-486b-97c4-c29acb992e06)
+
+CSV files are easy to produce and have a loose set of rules to follow to be considered usable. Because of this, PySpark provides a whopping 25 optional parameters when ingesting a CSV file. Compare this to the two for reading text data. In listing 4.3, I use three configuration parameters: the record delimiter through sep and the presence of a header (column names) row through header, and I finally ask Spark to infer the data types for me with inferSchema (more on this in section 4.3.2). This is enough to parse our data into a data frame.
+```
+Listing 4.3 Reading our broadcasting information
+
+import os
+ 
+DIRECTORY = "./data/broadcast_logs"
+logs = spark.read.csv(
+    os.path.join(DIRECTORY, "BroadcastLogs_2018_Q3_M8.CSV"),  ❶
+    sep="|",                                                  ❷
+    header=True,                                              ❸
+    inferSchema=True,                                         ❹
+    timestampFormat="yyyy-MM-dd",                             ❺
+)
+```
+❶ We specify the file path where our data resides first.
+
+❷ Our file uses a vertical bar as delimiter/separator, so we pass | as a parameter to sep.
+
+❸ header takes a Boolean. When true, the first row of your file is parsed as the column names.
+
+❹ inferSchema takes a Boolean as well. When true, it’ll pre-parse the data to infer the type of the column.
+
+❺ timestampFormat is used to inform the parser of the format (year, month, day, hour, minutes, seconds, microseconds) of the timestamp fields (see section 4.4.3).
+
+While we were able to read the CSV data for our analysis, this is just one narrow example of the usage of the SparkReader. The next section expands on the most important parameters when reading CSV data and provides more detailed explanations behind the code used in listing 4.3.
+
+# 4.3.2 Customizing the SparkReader object to read CSV data files
+This section focuses on how we can specialize the SparkReader object to read delimited data and the most popular configuration parameters to accommodate the various declinations of CSV data.
+```
+Listing 4.4 The spark.read.csv function, with every parameter explicitly laid out
+
+logs = spark.read.csv(
+    path=os.path.join(DIRECTORY, "BroadcastLogs_2018_Q3_M8.CSV"),
+    sep="|",
+    header=True,
+    inferSchema=True,
+    timestampFormat="yyyy-MM-dd",
+)
+```
+
+Reading delimited data can be a dicey business. Because of how flexible and human-editable the format is, a CSV reader needs to provide many options to cover the many use cases possible. There is also a risk that the file is malformed, in which case you will need to treat it as text and gingerly infer the fields manually. I will stay on the happy path and cover the most popular scenario: a single file, properly delimited.
+
+`THE PATH TO THE FILE YOU WANT TO READ AS THE ONLY MANDATORY PARAMETER`
+
+Just like when reading text, the only truly mandatory parameter is the path, which contains the file or files’ path. As we saw in chapter 2, you can use a glob pattern to read multiple files inside a given directory, as long as they have the same structure. You can also explicitly pass a list of file paths if you want specific files to be read.
+
+`PASSING AN EXPLICIT FIELD DELIMITER WITH THE SEP PARAMETER`
+
+The most common variation you’ll encounter when ingesting and producing CSV files is selecting the right delimiter. The comma is the most popular, but it suffers from being a popular character in text, which means you need a way to differentiate which commas are part of the text and which are delimiters. Our file uses the vertical bar character, an apt choice: it’s easily reachable on the keyboard yet infrequent in text.
+
+`NOTE` In French, we use the comma for separating numbers between their integral part and their decimal part (e.g., 1.02 → 1,02). This is pretty awful when in a CSV file, so most French CSVs will use the semicolon (;) as a field delimiter. This is one more example of why you need to be vigilant when using CSV data.
+
+When reading CSV data, PySpark will default to using the comma character as a field delimiter. You can set the optional parameter sep (for separator) to the single character you want to use as a field delimiter.
+
+`QUOTING TEXT TO AVOID MISTAKING A CHARACTER FOR A DELIMITER`
+
+When working with CSVs that use the comma as a delimiter, it’s common practice to quote the text fields to make sure any comma in the text is not mistaken for a field separator. The CSV reader object provides an optional `quote` parameter that defaults to the double-quote character (`"`). Since I am not passing an explicit value to `quote`, we are keeping the default value. This way, we can have a field with the value `"Three | Trois"`, whereas without the quotation characters, we would consider this two fields. If we don’t want to use any character as a quote, we need to explicitly pass the empty string to `quote`.
+
+`USING THE FIRST ROW AS THE COLUMN NAMES`
+
+The `header` optional parameter takes a Boolean flag. If set to true, it’ll use the first row of your file (or files, if you’re ingesting many) and use it to set your column names.
+You can also pass an explicit schema (see chapter 6) or a DDL string (see chapter 7) as the schema optional parameter if you wish to explicitly name your columns. If you don’t fill any of those, your data frame will have `_c*` for column names, where the `*` is replaced with increasing integers (`_c0`, `_c1`, . . .).
+
+`INFERRING COLUMN TYPE WHILE READING THE DATA`
+
+PySpark has a schema-discovering capacity. You turn it on by setting `inferSchema` to True (by default, this is turned off). This optional parameter forces PySpark to go over the ingested data twice: one time to set the type of each column, and one time to ingest the data. This makes the ingestion quite a bit longer but helps us avoid writing the schema by hand (I go down to this level of detail in chapter 6). Let the machine do the work!
+
+`TIP` Inferring the schema can be very expensive if you have a lot of data. In chapter 6, I cover how to work with (and extract) schema information; if you read a data source multiple times, it’s a good idea to keep the schema information once inferred! You can also take a small representative data set to infer the schema, followed by reading the large data set.
+
+We are lucky enough that the government of Canada is a good steward of data and provides us with clean, properly formatted files. In the wild, malformed CSV files are legion, and you will run into errors when trying to ingest some of them. Furthermore, if your data is large, you often won’t get the chance to inspect each row to fix mistakes. Chapter 6 covers some strategies to ease the pain and shows you some ways to share your data with the schema included.
+
+Our data frame schema, displayed in the next listing, is coherent with the documentation we’ve downloaded. The column names are properly displayed, and the types make sense. That’s enough to get started with some exploration.
+
+```
+Listing 4.5 The schema of our logs data frame
+
+logs.printSchema()
+# root
+#  |-- BroadcastLogID: integer (nullable = true)
+#  |-- LogServiceID: integer (nullable = true)
+#  |-- LogDate: timestamp (nullable = true)
+#  |-- SequenceNO: integer (nullable = true)
+#  |-- AudienceTargetAgeID: integer (nullable = true)
+#  |-- AudienceTargetEthnicID: integer (nullable = true)
+#  |-- CategoryID: integer (nullable = true)
+#  |-- ClosedCaptionID: integer (nullable = true)
+#  |-- CountryOfOriginID: integer (nullable = true)
+#  |-- DubDramaCreditID: integer (nullable = true)
+#  |-- EthnicProgramID: integer (nullable = true)
+#  |-- ProductionSourceID: integer (nullable = true)
+#  |-- ProgramClassID: integer (nullable = true)
+#  |-- FilmClassificationID: integer (nullable = true)
+#  |-- ExhibitionID: integer (nullable = true)
+#  |-- Duration: string (nullable = true)
+#  |-- EndTime: string (nullable = true)
+#  |-- LogEntryDate: timestamp (nullable = true)
+#  |-- ProductionNO: string (nullable = true)
+#  |-- ProgramTitle: string (nullable = true)
+#  |-- StartTime: string (nullable = true)
+#  |-- Subtitle: string (nullable = true)
+#  |-- NetworkAffiliationID: integer (nullable = true)
+#  |-- SpecialAttentionID: integer (nullable = true)
+#  |-- BroadcastOriginPointID: integer (nullable = true)
+#  |-- CompositionID: integer (nullable = true)
+#  |-- Producer1: string (nullable = true)
+#  |-- Producer2: string (nullable = true)
+#  |-- Language1: integer (nullable = true)
+#  |-- Language2: integer (nullable = true)
+```
