@@ -2185,3 +2185,50 @@ logs.printSchema()
 #  |-- Language1: integer (nullable = true)
 #  |-- Language2: integer (nullable = true)
 ```
+
+## Exercise 4.1
+
+Let’s take the following file, called sample.csv, which contains three columns:
+```
+Item,Quantity,Price
+$Banana, organic$,1,0.99
+Pear,7,1.24
+$Cake, chocolate$,1,14.50
+```
+
+`logs = spark.read.csv("/config/workspace/data/broadcast_logs/sample.csv",sep=",",quote="$",header=True,inferSchema=True)`
+```
+>>> logs.show()
++---------------+--------+-----+
+|           Item|Quantity|Price|
++---------------+--------+-----+
+|Banana, organic|       1| 0.99|
+|           Pear|       7| 1.24|
+|Cake, chocolate|       1| 14.5|
++---------------+--------+-----+
+```
+
+# 4.3.3 Exploring the shape of our data universe
+When working with tabular data, especially if it comes from a SQL data warehouse, you’ll often find that the data set is split between tables. In our case, our logs table contains a majority of fields suffixed by ID; those IDs are listed in other tables, and we have to link them to get the legend of those IDs. This section briefly introduces star schemas, why they are so frequently encountered, and how we can visually represent them to work with them.
+
+Our data universe (the set of tables we are working with) follows a very common pattern in relational databases: a center table containing a bunch of IDs (or keys) and some ancillary tables containing a legend between each key and its value. This is called a star schema since it looks like a star. Star schemas are common in the relational database world because of normalization, a process used to avoid duplicating pieces of data and improve data integrity. Data normalization is illustrated in figure 4.4, where our center table logs contain IDs that map to the auxiliary tables called link tables. In the case of the CD_Category link table, it contains many fields (e.g., Category_CD and English_description) that are made available to logs when you link the tables with the Category_ID key.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/edb3b0b2-7e74-4061-86c3-5481562ac988)
+
+Figure 4.4 The logs table ID columns map to other tables, like the CD_category table, which links the Category_ID field.
+
+In Spark’s universe, we often prefer working with a single table instead of linking a multitude of tables to get the data. We call these denormalized tables, or, colloquially, fat tables. We start by assessing the data directly available in the logs table before plumping our table, a topic I cover in chapter 5. By looking at the logs table, its content, and the data documentation, we avoid linking tables that contain data with no real value for our analysis.
+
+The right structure for the right work
+
+Normalization, denormalization—what gives? Isn’t this a book about data analysis?
+
+While this book isn’t about data modelling, it’s important to understand, at least a little, how data might be structured so that we can work with it. Normalized data has many advantages when you’re working with relational information (e.g., our broadcast tables). In addition to being easier to maintain, data normalization reduces the probability of getting anomalies or illogical records in the data. On the flip side, large-scale data systems sometimes embrace denormalized tables to avoid costly join operations.
+
+When dealing with analytics, a single table containing all the data is best. However, having to link/join the data by hand can be tedious, especially when working with dozens or even hundreds of link tables (check out chapter 5 for more information about joins). Fortunately, data warehouses don’t change their structure very often. If you’re faced with a complex star schema one day, befriend one of the database managers. There is a very good chance they’ll provide you with the information to denormalize the tables, most often in SQL, and chapter 7 will show how you can adapt the code into PySpark with minimum effort.
+
+# 4.4 The basics of data manipulation: Selecting, dropping, renaming, ordering, diagnosing
+This section shows the most common manipulations done on a data frame in greater detail. I show how you can select, delete, rename, reorder, and create columns so you can customize how a data frame is shown. I also cover summarizing a data frame so you can have a quick diagnostic overview of the data inside your structure. 
+
+# 4.4.1 Knowing what we want: Selecting columns
+
