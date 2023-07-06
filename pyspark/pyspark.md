@@ -2231,4 +2231,459 @@ When dealing with analytics, a single table containing all the data is best. How
 This section shows the most common manipulations done on a data frame in greater detail. I show how you can select, delete, rename, reorder, and create columns so you can customize how a data frame is shown. I also cover summarizing a data frame so you can have a quick diagnostic overview of the data inside your structure. 
 
 # 4.4.1 Knowing what we want: Selecting columns
+So far, we’ve learned that typing our data frame variable into the shell prints the structure of the data frame, not the data, unless you’re using eagerly evaluated Spark (referenced in chapter 2). We can also use the `show()` command to display a few records for exploration. I won’t show the results, but if you try it, you’ll see that the table-esque output is garbled because we are showing too many columns at once. This section reintroduces the `select()` method, which, this time, instructs PySpark on the columns you want to keep in your data frame. I also introduce how you can refer to columns when using PySpark methods and functions.
 
+At its simplest, `select()` can take one or more column objects—or strings representing column names—and return a data frame containing only the listed columns. This way, we can keep our exploration tidy and check a few columns at a time. An example is displayed in the next listing.
+```
+Listing 4.6 Selecting five rows of the first three columns of our data frame
+
+logs.select("BroadcastLogID", "LogServiceID", "LogDate").show(5, False)
+ 
+# +--------------+------------+-------------------+
+# |BroadcastLogID|LogServiceID|LogDate            |
+# +--------------+------------+-------------------+
+# |1196192316    |3157        |2018-08-01 00:00:00|
+# |1196192317    |3157        |2018-08-01 00:00:00|
+# |1196192318    |3157        |2018-08-01 00:00:00|
+# |1196192319    |3157        |2018-08-01 00:00:00|
+# |1196192320    |3157        |2018-08-01 00:00:00|
+# +--------------+------------+-------------------+
+# only showing top 5 rows
+```
+In chapter 2, you learned that `.show(5, False)` shows five rows without truncating their representation so that we can show the whole content. The `.select()` statement is where the magic happens. In the documentation, select() takes a single parameter, `*cols`; the `*` means that the method will accept an arbitrary number of parameters. If we pass multiple column names, `select()` will simply clump all the parameters in a tuple called `cols`.
+
+Because of this, we can use the same de-structuring trick for selecting columns. From a PySpark perspective, the four statements in listing 4.7 are interpreted the same. Note how prefixing the list with a star removed the container so that each element becomes a parameter of the function. If this looks a little confusing to you, fear not! Appendix C provides you with a good overview of collection unpacking.
+
+```
+Listing 4.7 Four ways to select columns in PySpark, all equivalent in terms of results
+
+# Using the string to column conversion
+logs.select("BroadCastLogID", "LogServiceID", "LogDate")
+logs.select(*["BroadCastLogID", "LogServiceID", "LogDate"])
+ 
+# Passing the column object explicitly
+logs.select(
+    F.col("BroadCastLogID"), F.col("LogServiceID"), F.col("LogDate")
+)
+logs.select(
+    *[F.col("BroadCastLogID"), F.col("LogServiceID"), F.col("LogDate")]
+)
+```
+
+When explicitly selecting a few columns, you don’t have to wrap them into a list. If you’re already working on a list of columns, you can unpack them with a `*` prefix. This argument unpacking pattern is worth remembering as many other data frame methods taking columns as input use the same approach.
+
+In the spirit of being clever (or lazy), let’s expand our selection code to see every column in groups of three. This will give us a sense of the content. A data frame keeps track of its columns in the columns attributes; `logs.columns` is a Python list containing all the column names of the logs data frame. In the next listing, I slice the columns into groups of three to display them by small groups rather than in one fell swoop.
+
+```
+Listing 4.8 Peeking at the data frame in chunks of three columns
+
+import numpy as np
+ 
+column_split = np.array_split()
+    np.array(logs.columns), len(logs.columns) // 3   ❶
+)  
+ 
+print(column_split)
+ 
+# [array(['BroadcastLogID', 'LogServiceID', 'LogDate'], dtype='<U22'),
+#  [...]
+#  array(['Producer2', 'Language1', 'Language2'], dtype='<U22')]'
+ 
+for x in column_split:
+    logs.select(*x).show(5, False)
+ 
+# +--------------+------------+-------------------+
+# |BroadcastLogID|LogServiceID|LogDate            |
+# +--------------+------------+-------------------+
+# |1196192316    |3157        |2018-08-01 00:00:00|
+# |1196192317    |3157        |2018-08-01 00:00:00|
+# |1196192318    |3157        |2018-08-01 00:00:00|
+# |1196192319    |3157        |2018-08-01 00:00:00|
+# |1196192320    |3157        |2018-08-01 00:00:00|
+# +--------------+------------+-------------------+
+# only showing top 5 rows
+# ... and more tables of three columns
+```
+
+❶ The array_split() function comes from the numpy package, imported as np at the beginning of this listing.
+
+Let’s take each line one at a time. We start by splitting the `logs.columns` list into approximate groups of three. To do so, we rely on a function from the numpy package called `array_split()`. The function takes an array and a number of desired sub-arrays, `N`, and returns a list of `N` sub-arrays. We wrap our list of columns, `logs.columns`, into an array via the `np.array` function and pass this as a first parameter. For the number of sub-arrays, we divide the number of columns by three, using an integer division, `//`.
+
+`TIP` To be perfectly honest, the call to `np.array` can be eschewed since `np.array_split()` can work on lists, albeit more slowly. I am still using it because if you are using a static type checker, such as mypy, you’ll get a type error. Chapter 8 has a basic introduction to type checking in your PySpark program.
+
+The last part of listing 4.8 iterates over the list of sub-arrays, using `select()`; select the columns present inside each sub-array and use show() to display them on the screen.
+
+# 4.4.2 Keeping what we need: Deleting columns
+The other side of selecting columns is choosing what not to select. We could do the full trip with `select()`, carefully crafting our list of columns to keep just the one we want. Fortunately, PySpark also provides a shorter trip: simply drop what you don’t want.
+
+Let’s get rid of two columns in our current data frame in the spirit of tidying up. Hopefully, it will bring us joy:
+
+`BroadCastLogID` is the primary key of the table and will not serve us in answering our questions.
+
+`SequenceNo` is a sequence number and won’t be useful either.
+
+More will come off later when we start looking at the link tables. The code in the next listing does this simply.
+```
+Listing 4.9 Getting rid of columns using the drop() method
+
+logs = logs.drop("BroadcastLogID", "SequenceNO")
+ 
+# Testing if we effectively got rid of the columns
+ 
+print("BroadcastLogID" in logs.columns)  # => False
+print("SequenceNo" in logs.columns)  # => False
+```
+Just like `select()`, `drop()` takes a `*cols` and returns a data frame, this time excluding the columns passed as parameters. Just like every other method in PySpark, `drop()` returns a new data frame, so we overwrite our `logs` variable by assigning the result of our code.
+
+`WARNING` Unlike `select()`, where selecting a column that doesn’t exist will return a runtime error, dropping a nonexistent column is a no-op. PySpark will simply ignore the columns it doesn’t find. Be careful with the spelling of your column names!
+
+Depending on how many columns you want to preserve, select() might be a neater way to keep only what you want. We can view drop() and select() as being two sides of the same coin: one drops what you specify; the other keeps what you specify. We could reproduce listing 4.9 with a select() method, and the next listing does just that.
+```
+Listing 4.10 Getting rid of columns, select style
+
+logs = logs.select(
+    *[x for x in logs.columns if x not in ["BroadcastLogID", "SequenceNO"]]
+)
+```
+Advanced topic: An unfortunate inconsistency
+
+In theory, you can also select() columns with a list without unpacking them. This code will work as expected:
+```
+logs = logs.select(
+    [x for x in logs.columns if x not in ["BroadcastLogID", "SequenceNO"]]
+)
+```
+This is not the case for drop(), where you need to explicitly unpack:
+```
+logs.drop(logs.columns[:])
+# TypeError: col should be a string or a Column
+ 
+logs.drop(*logs.columns[:])
+# DataFrame[]
+```
+
+## Exercise 4.2
+
+What is the printed result of this code?
+
+sample_frame.columns # => ['item', 'price', 'quantity', 'UPC']
+ 
+print(sample_frame.drop('item', 'UPC', 'prices').columns)
+a) ['item' 'UPC']
+
+b) ['item', 'upc']
+
+c) ['price', 'quantity']
+
+d) ['price', 'quantity', 'UPC']
+
+e) Raises an error
+
+# 4.4.3 Creating what’s not there: New columns with withColumn()
+Creating new columns is such a basic operation that it seems a little far-fetched to rely on` select()`. It also puts a lot of pressure on code readability; for instance, using `drop()` makes it obvious we’re removing columns. It would be nice to have something that signals we’re creating a new column. PySpark named this function `withColumn()`.
+
+Before going crazy with column creation, let’s take a simple example, build what we need iteratively, and then move the data to `withColumn()`. Let’s take the Duration column, which contains the length of each program shown.
+```
+Listing 4.11 Selecting and displaying the Duration column
+
+logs.select(F.col("Duration")).show(5)
+ 
+# +----------------+
+# |        Duration|
+# +----------------+
+# |02:00:00.0000000|
+# |00:00:30.0000000|
+# |00:00:15.0000000|
+# |00:00:15.0000000|
+# |00:00:15.0000000|
+# +----------------+
+# only showing top 5 rows
+ 
+print(logs.select(F.col("Duration")).dtypes)    ❶
+ 
+# [('Duration', 'string')]
+```
+
+❶ The dtypes attribute of a data frame contains the name of the column and its type, wrapped in a tuple.
+
+PySpark doesn’t have a default type for time without dates or duration, so it kept the column as a string. We verified the exact type via the `dtypes` attribute, which returns both the name and type of a data frame’s columns. A string is a safe and reasonable option, but this isn’t remarkably useful for our purpose. Thanks to our peeking, we can see that the string is formatted like `HH:MM:SS.mmmmmm`, where
+
+HH is the duration in hours.
+
+MM is the duration in minutes.
+
+SS is the duration in seconds.
+
+mmmmmmm is the duration in microseconds.
+
+`NOTE` To match an arbitrary date/timestamp pattern, refer to the Spark documentation for date-time patterns at http://mng.bz/M2X2.
+
+In listing 4.12, I use it to extract the hours, minutes, and seconds from the Duration columns. The substr() method takes two parameters. The first gives the position of where the sub-string starts, the first character being 1, not 0 like in Python. The second gives the length of the sub-string we want to extract in a number of characters. The function application returns a string Column that I convert to an Integer via the cast() method. Finally, I provide an alias for each column so that we can easily tell which is which.
+```
+Listing 4.12 Extracting the hours, minutes, and seconds from the Duration column
+
+logs.select(
+    F.col("Duration"),                                                ❶
+    F.col("Duration").substr(1, 2).cast("int").alias("dur_hours"),    ❷
+    F.col("Duration").substr(4, 2).cast("int").alias("dur_minutes"),  ❸
+    F.col("Duration").substr(7, 2).cast("int").alias("dur_seconds"),  ❹
+).distinct().show(                                                    ❺
+    5
+)
+ 
+# +----------------+---------+-----------+-----------+
+# |        Duration|dur_hours|dur_minutes|dur_seconds|
+# +----------------+---------+-----------+-----------+
+# |00:10:06.0000000|        0|         10|          6|
+# |00:10:37.0000000|        0|         10|         37|
+# |00:04:52.0000000|        0|          4|         52|
+# |00:26:41.0000000|        0|         26|         41|
+# |00:08:18.0000000|        0|          8|         18|
+# +----------------+---------+-----------+-----------+
+# only showing top 5 rows
+```
+
+❶ The original column, for sanity.
+
+❷ The first two characters are the hours.
+
+❸ The fourth and fifth characters are the minutes.
+
+❹ The seventh and eighth characters are the seconds.
+
+❺ To avoid seeing identical rows, I’ve added a distinct() to the results.
+
+I use the `distinct()` method before `show()`, which de-dupes the data frame. This is explained further in chapter 5. I added `distinct()` to avoid seeing identical occurrences that would provide no additional information when displayed.
+
+In the next listing, we apply addition and multiplication on integer columns, just like if they were simple number values.
+```
+Listing 4.13 Creating a duration in second field from the Duration column
+
+logs.select(
+    F.col("Duration"),
+    (
+        F.col("Duration").substr(1, 2).cast("int") * 60 * 60
+        + F.col("Duration").substr(4, 2).cast("int") * 60
+        + F.col("Duration").substr(7, 2).cast("int")
+    ).alias("Duration_seconds"),
+).distinct().show(5)
+ 
+# +----------------+----------------+
+# |        Duration|Duration_seconds|
+# +----------------+----------------+
+# |00:10:30.0000000|             630|
+# |00:25:52.0000000|            1552|
+# |00:28:08.0000000|            1688|
+# |06:00:00.0000000|           21600|
+# |00:32:08.0000000|            1928|
+# +----------------+----------------+
+# only showing top 5 rows
+```
+
+We kept the same definitions, removed the alias, and performed arithmetic directly on the columns. There are 60 seconds in a minute, and 60 * 60 seconds in an hour. PySpark respects operator precedence, so we don’t have to clobber our equation with parentheses. Overall, our code is quite easy to follow, and we are ready to add our column to our data frame.
+
+What if we want to add a column at the end of our data frame? Instead of using `select()` on all the columns plus our new one, let’s use `withColumn()`. Applied to a data frame, it’ll return a data frame with the new column appended. The next listing takes our field and adds it to our `logs` data frame. I also include a sample of the `printSchema()` method so that you can see the column added at the end.
+
+```
+Listing 4.14 Creating a new column with withColumn()
+
+logs = logs.withColumn(
+    "Duration_seconds",
+    (
+        F.col("Duration").substr(1, 2).cast("int") * 60 * 60
+        + F.col("Duration").substr(4, 2).cast("int") * 60
+        + F.col("Duration").substr(7, 2).cast("int")
+    ),
+)
+ 
+logs.printSchema()
+ 
+# root
+#  |-- LogServiceID: integer (nullable = true)
+#  |-- LogDate: timestamp (nullable = true)
+#  |-- AudienceTargetAgeID: integer (nullable = true)
+#  |-- AudienceTargetEthnicID: integer (nullable = true)
+#  [... more columns]
+#  |-- Language2: integer (nullable = true)
+#  |-- Duration_seconds: integer (nullable = true)    ❶
+```
+
+❶ Our Duration_seconds columns have been added at the end of our data frame.
+
+`WARNING` If you create a column withColumn() and give it a name that already exists in your data frame, PySpark will happily overwrite the column. This is often very useful for keeping the number of columns manageable, but make sure you are seeking this effect!
+
+We can create columns using the same expression with select() and with withColumn(). Both approaches have their use. select() will be useful when you’re explicitly working with a few columns. When you need to create a few new ones without changing the rest of the data frame, I prefer withColumn(). You’ll quickly gain intuition about which is easiest when faced with the choice.
+
+`WARNING` Creating many (100+) new columns using withColumns() will slow Spark down to a grind. If you need to create a lot of columns at once, use the select() approach. While it will generate the same work, it is less tasking on the query planner.
+
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/d046f5ac-06ae-4b46-add2-3b1e5942a167)
+Figure 4.5 select() versus withColumn(), visually. withColumn() keeps all the preexisting columns without the need the specify them explicitly.
+
+# 4.4.4 Tidying our data frame: Renaming and reordering columns
+This section covers how to make the order and names of the columns friendlier. It might seem a little vapid, but after a few hours of hammering code on a particularly tough piece of data, you’ll be happy to have this in your toolbox.
+
+Renaming columns can be done with `select()` and `alias()`, of course. We saw briefly in chapter 3 that PySpark provides you an easier way to do so. Enter `withColumnRenamed()`! In the following listing, I use `withColumnRenamed()` to remove the capital letters of my newly created duration_seconds column.
+```
+Listing 4.15 Renaming one column at a type, the withColumnRenamed() way
+
+logs = logs.withColumnRenamed("Duration_seconds", "duration_seconds")
+ 
+logs.printSchema()
+ 
+# root
+#  |-- LogServiceID: integer (nullable = true)
+#  |-- LogDate: timestamp (nullable = true)
+#  |-- AudienceTargetAgeID: integer (nullable = true)
+#  |-- AudienceTargetEthnicID: integer (nullable = true)
+#  [...]
+#  |-- Language2: integer (nullable = true)
+#  |-- duration_seconds: integer (nullable = true)
+```
+I’m a huge fan of having column names without capital letters. I’m a lazy typist, and pressing Shift all the time adds up! I could potentially use withColumnRenamed() with a for loop over all the columns to rename them in my data frame. The PySpark developers thought about this and offered a better way to rename all the columns of your data frame in one fell swoop. This relies on a method, toDF(), that returns a new data frame with the new columns. Just like drop(), toDF() takes a *cols, and just like select() and drop(), we need to unpack our column names if they’re in a list. The code in the next listing shows how you can rename all your columns to lowercase in a single line using that method.
+
+```
+Listing 4.16 Batch lowercasing using the toDF() method
+
+logs.toDF(*[x.lower() for x in logs.columns]).printSchema()
+ 
+# root
+#  |-- logserviceid: integer (nullable = true)
+#  |-- logdate: timestamp (nullable = true)
+#  |-- audiencetargetageid: integer (nullable = true)
+#  |-- audiencetargetethnicid: integer (nullable = true)
+#  |-- categoryid: integer (nullable = true)
+#  [...]
+#  |-- language2: integer (nullable = true)
+#  |-- duration_seconds: integer (nullable = true)
+```
+
+Our final step is reordering columns. Since reordering columns is equivalent to selecting columns in a different order, select() is the perfect method for the job. For instance, if we wanted to sort the columns alphabetically, we could use the sorted function on the list of our data frame columns, just like in the next listing
+```
+Listing 4.17 Selecting our columns in alphabetical order using select()
+
+logs.select(sorted(logs.columns)).printSchema()
+ 
+# root
+#  |-- AudienceTargetAgeID: integer (nullable = true)
+#  |-- AudienceTargetEthnicID: integer (nullable = true)
+#  |-- BroadcastOriginPointID: integer (nullable = true)
+#  |-- CategoryID: integer (nullable = true)
+#  |-- ClosedCaptionID: integer (nullable = true)
+#  |-- CompositionID: integer (nullable = true)
+#  [...]
+#  |-- Subtitle: string (nullable = true)
+#  |-- duration_seconds: integer (nullable = true)   ❶
+```
+❶ Remember that, in most programming languages, capital letters come before lowercase ones.
+
+# 4.4.5 Diagnosing a data frame with describe() and summary()
+When working with numerical data, looking at a long column of values isn’t very useful. We’re often more concerned about some key information, which may include count, mean, standard deviation, minimum, and maximum. In this section, I cover how we can quickly explore numerical columns using PySpark’s describe() and summary() methods.
+
+When applied to a data frame with no parameters, describe() will show summary statistics (count, mean, standard deviation, min, and max) on all numerical and string columns. To avoid screen overflow, I display the column descriptions one by one by iterating over the list of columns and showing the output of describe() in the next listing. Note that describe() will (lazily) compute the data frame but won’t display it, just like any transformation, so we have to show() the result.
+```
+Listing 4.18 Describing everything in one fell swoop
+
+for i in logs.columns:
+    logs.describe(i).show()
+ 
+# +-------+------------------+   ❶
+# |summary|      LogServiceID|
+# +-------+------------------+
+# |  count|           7169318|
+# |   mean|3453.8804215407936|
+# | stddev|200.44137201584468|
+# |    min|              3157|
+# |    max|              3925|
+# +-------+------------------+
+#
+# [...]
+#
+# +-------+                      ❷
+# |summary|
+# +-------+
+# |  count|
+# |   mean|
+# | stddev|
+# |    min|
+# |    max|
+# +-------+
+ 
+# [... many more little tables]
+```
+❶ Numerical columns will display the information in a description table, like so.
+
+❷ If the type of the column isn’t compatible, PySpark displays only the title column.
+
+It will take more time than doing everything in one fell swoop, but the output will be a lot friendlier. Since we can’t compute the mean or standard deviation of a string, you’ll see null values for those columns. Furthermore, some columns won’t be displayed (you’ll see time tables with only the title column), as describe() will only work for numerical and string columns. For a short line to type, you still get a lot!
+
+describe() is a fantastic method, but what if you want more? summary() to the rescue!
+
+Where describe() will take *cols as a parameter (one or more columns, the same way as select() or drop()), summary() will take *statistics as a parameter. This means that you’ll need to select the columns you want to see before passing the summary() method. On the other hand, we can customize the statistics we want to see. By default, summary() shows everything describe() shows, adding the approximate 25-50% and 75% percentiles. The next listing shows how you can replace describe() for summary() and the result of doing so.
+
+```
+Listing 4.19 Summarizing everything in one fell swoop
+
+for i in logs.columns:
+    logs.select(i).summary().show()                             ❶
+ 
+# +-------+------------------+
+# |summary|      LogServiceID|
+# +-------+------------------+
+# |  count|           7169318|
+# |   mean|3453.8804215407936|
+# | stddev|200.44137201584468|
+# |    min|              3157|
+# |    25%|              3291|
+# |    50%|              3384|
+# |    75%|              3628|
+# |    max|              3925|
+# +-------+------------------+
+#
+# [... many more slightly larger tables]
+ 
+for i in logs.columns:
+    logs.select(i).summary("min", "10%", "90%", "max").show()   ❷
+ 
+# +-------+------------+
+# |summary|LogServiceID|
+# +-------+------------+
+# |    min|        3157|
+# |    10%|        3237|
+# |    90%|        3710|
+# |    max|        3925|
+# +-------+------------+
+#
+# [...]
+```
+
+❶ By default, we have count, mean, stddev, min, 25%, 50%, 75%, max as statistics.
+
+❷ We can also pass our own, following the same nomenclature convention.
+
+If you want to limit yourself to a subset of those metrics, summary() will accept a number of string parameters representing the statistic. You can input count, mean, stddev, min, or max directly. For approximate percentiles, you need to provide them in XX% format, such as 25%.
+
+Both methods will work only on non-null values. For the summary statistics, it’s the expected behavior, but the “count” entry will also count only the non-null values for each column. This is a good way to see which columns are mostly empty!
+
+`WARNING` describe() and summary() are two very useful methods, but they are not meant to be used for anything other than quickly peeking at data during development. The PySpark developers don’t guarantee that the output will look the same from version to version, so if you need one of the outputs for your program, use the corresponding function in pyspark.sql .functions. They’re all there.
+
+# Summary
+1. PySpark uses the SparkReader object to directly read any kind of data in a data frame. The specialized CSVSparkReader is used to ingest CSV files. Just like when reading text, the only mandatory parameter is the source location.
+
+2. The CSV format is very versatile, so PySpark provides many optional parameters to account for this flexibility. The most important ones are the field delimiter, the record delimiter, and the quotation character, all of which have sensible defaults.
+
+3. PySpark can infer the schema of a CSV file by setting the inferSchema optional parameter to True. PySpark accomplishes this by reading the data twice: once for setting the appropriate types for each column and once to ingest the data in the inferred format.
+
+4. Tabular data is represented in a data frame in a series of columns, each having a name and a type. Since the data frame is a column-major data structure, the concept of rows is less relevant.
+
+5. You can use Python code to explore the data efficiently, using the column list as any Python list to expose the elements of the data frame of interest.
+
+6. The most common operations on a data frame are the selection, deletion, and creation of columns. In PySpark, the methods used are select(), drop(), and withColumn(), respectively.
+
+7. select can be used for column reordering by passing a reordered list of columns.
+
+8. You can rename columns one by one with the withColumnRenamed() method, or all at once by using the toDF() method.
+
+9. You can display a summary of the columns with the describe() or summary() methods. describe() has a fixed set of metrics, while summary() will take functions as parameters and apply them to all columns.
+
+## Create a new data frame, logs_clean, that contains only the columns that do not end with ID.
