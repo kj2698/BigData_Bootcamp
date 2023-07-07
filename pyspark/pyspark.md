@@ -2700,3 +2700,142 @@ Both methods will work only on non-null values. For the summary statistics, it�
 +----------+----------------+----------------+------------+------------+--------------------+----------------+--------+---------+---------+---------+---------+---------------+
 only showing top 5 rows
 ```
+
+# 5 Data frame gymnastics: Joining and grouping
+This chapter covers
+
+Joining two data frames together
+
+Selecting the right type of join for your use case
+
+Grouping data and understanding the GroupedData transitional object
+
+Breaking the GroupedData with an aggregation method
+
+Filling null values in your data frame
+
+# 5.1 From many to one: Joining data
+What happens when we need to link two sources? This section will introduce joins and how we can apply them when using a star schema setup or another set of tables where values match exactly.
+
+Joining data frames is a common operation when working with related tables. If you’ve used other data-processing libraries, you might have seen the same operation called a merge or a link. Because there are multiple ways to perform joins, the next section sets a common vocabulary to avoid confusion and build understanding on solid ground.
+
+# 5.1.1 What’s what in the world of joins
+At the most basic level, a join operation is a way to take the data from one data frame and link it to another one according to a set of rules. To introduce the moving parts of a join, I provide a second table to be joined to our logs data frame in listing 5.1. I use the same parameterization of the SparkReader.csv as used for the logs table to read our new log_identifier table. Once the table is ingested, I filter the data frame to keep only the primary channels, as per the data documentation. With this, we should be good to go.
+```
+Listing 5.1 Exploring our first link table: log_identifier
+
+DIRECTORY = "./data/broadcast_logs"
+log_identifier = spark.read.csv(
+    os.path.join(DIRECTORY, "ReferenceTables/LogIdentifier.csv"),
+    sep="|",
+    header=True,
+    inferSchema=True,
+)
+ 
+log_identifier.printSchema()
+# root
+#  |-- LogIdentifierID: string (nullable = true)              ❶
+#  |-- LogServiceID: integer (nullable = true)                ❷
+#  |-- PrimaryFG: integer (nullable = true)                   ❸
+ 
+log_identifier = log_identifier.where(F.col("PrimaryFG") == 1)
+print(log_identifier.count())
+# 758
+ 
+log_identifier.show(5)
+# +---------------+------------+---------+
+# |LogIdentifierID|LogServiceID|PrimaryFG|
+# +---------------+------------+---------+
+# |           13ST|        3157|        1|
+# |         2000SM|        3466|        1|
+# |           70SM|        3883|        1|
+# |           80SM|        3590|        1|
+# |           90SM|        3470|        1|
+# +---------------+------------+---------+
+# only showing top 5 rows
+```
+❶ This is the channel identifier.
+
+❷ This is the channel key (which maps to our center table).
+
+❸ This is a Boolean flag: Is the channel primary (1) or (0)? We want only the 1s.
+
+We have two data frames, logs and log_identifier, each containing a set of columns. We are ready to start joining!
+
+The join operation has three major ingredients:
+
+1. Two tables, called a left and a right table, respectively
+
+2. One or more predicates, which are the series of conditions that determine how records between the two tables are joined
+
+3. A method to indicate how we perform the join when the predicate succeeds and when it fails
+
+With these three ingredients, you can construct a join between two data frames in PySpark by filling the blueprint in listing 5.2 with the relevant keywords to accomplish the desired behavior. Every join operation in PySpark will follow the same blueprint. The next few sections will take each keyword and illustrate how they impact the end result.
+```
+Listing 5.2 A bare-bone recipe for a join in PySpark
+
+[LEFT].join(
+    [RIGHT],
+    on=[PREDICATES]
+    how=[METHOD]
+)
+```
+
+# 5.1.2 Knowing our left from our right
+A join is performed on two tables at a time. In this section, we cover the [LEFT] and [RIGHT] blocks of listing 5.2. Knowing which table is called left and which is called right is helpful when discussing join types, so we start with this useful vocabulary.
+
+Because of the SQL heritage in the data manipulation vocabulary, the two tables are named left and right tables. In PySpark, a neat way to remember which is which is to say that the left table is to the left of the join() method, whereas the right is to the right (inside the parentheses). Knowing which is which is very useful when choosing the join method. Unsurprisingly, there are a left and right join types (see section 5.1.4).
+
+Our tables are now identified, so we can update our join blueprint as in the next listing. We now need to steer our attention to the next parameter, the predicates.
+```
+Listing 5.3 A bare-bone join in PySpark, with left and right tables filled in
+
+logs.join(            ❶
+    log_identifier,   ❷
+    on=[PREDICATES]
+    how=[METHOD]
+)
+```
+❶ logs is the left table . . .
+
+❷ . . . and log_identifier is the right table.
+
+# 5.1.3 The rules to a successful join: The predicates
+This section covers the `[PREDICATES]` block of the join blueprint, which is the cornerstone of determining what records from the left table will match the right table. Most predicates in join operations are simple, but they can grow significantly in complexity depending on the logic you want. I introduce the simplest and most common use cases first before graduating to more complex predicates.
+
+The predicates of a PySpark join are rules between columns of the left and right data frames. A join is performed record-wise, where each record on the left data frame is compared (via the predicates) to each record on the right data frame. If the predicates return `True`, the join is a match and is a no-match if `False`. We can think of this like a two-way `where` (see chapter 2): you match the values from one table to the other, and the (Boolean) result of the predicate block determines if it’s a match.
+
+The best way to illustrate a predicate is to create a simple example and explore the results. For our two data frames, we will build the predicate `logs["LogServiceID"] == log_identifier["LogServiceID"]`. In plain English, this translates to “match the records from the logs data frame to the records from the log_identifier data frame when the value of their LogServiceID column is equal.”
+I’ve taken a small sample of the data in both data frames and illustrated the result of applying the predicate in figure 5.1. There are two important points to highlight:
+
+If one record in the left table resolves the predicate with more than one record in the right table (or vice versa), this record will be duplicated in the joined table.
+
+If one record in the left or right table does not resolve the predicate with any record in the other table, it will not be present in the resulting table unless the join method (see section 5.1.4) specifies a protocol for failed predicates.
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/f7af15a9-998d-4784-ab22-d13e11647d2e)
+
+Figure 5.1 A simple join predicate resolution between logs and log_identifier using LogServiceID in both tables and equality testing in the predicate. I show only the four successes in the result table. Our predicate is applied to a sample of our two tables: 3590 in the left table resolves the predicate twice, while 3417 on the left and 3883 on the right have no matches.
+
+In our example, the `3590` record on the left is equal to the two corresponding records on the right, and we see two solved predicates with this number in our result set. On the other hand, the `3417` record does not match anything on the right, and therefore is not present in the result set. The same thing happens with the `3883` record in the right table.
+
+You are not limited to a single test in your predicate. You can use multiple conditions by separating them with Boolean operators such as | (or) or & (and). You can also use a different test than equality. Here are two examples and their plain English translation:
+
+`(logs["LogServiceID"] == log_identifier["LogServiceID"]) & (logs["left_ col"] < log_identifier["right_col"])`—This will only match the records that have the same LogServiceID on both sides and where the value of the left_col in the logs table is smaller than the value of the right_col in the log_identifier table.
+
+`(logs["LogServiceID"] == log_identifier["LogServiceID"]) | (logs["left_ col"] > log_identifier["right_col"])`—This will only match the records that have the same LogServiceID on both sides or where the value of the left_col in the logs table is greater than the value of the right_col in the log_identifier table.
+
+You can make the operations as complicated as you want. I recommend wrapping each condition in parentheses to avoid worrying about operator precedence and to facilitate the reading.
+
+Before adding our predicate to our join in progress, I want to note that PySpark provides a few predicate shortcuts to reduce the complexity of the code. If you have multiple and predicates (such as `(left["col1"] == right["colA"]) & (left["col2"] > right["colB"]) & (left["col3"] != right["colC"]))`, you can put them into a list, such as `[left["col1"] == right["colA"], left["col2"] > right["colB"], left["col3"] != right["colC"]]`. This makes your intent more explicit and avoids counting parentheses for long chains of conditions.
+
+Finally, if you are performing an “equi-join,” where you are testing for equality between identically named columns, you can simply specify the name of the columns as a string or a list of strings as a predicate. In our case, it means that our predicate can only be `"LogServiceID"`. This is what I put in the following listing.
+```
+Listing 5.4 A join in PySpark, with left and right tables and predicate
+
+logs.join(
+    log_identifier,
+    on="LogServiceID"
+    how=[METHOD]
+)
+```
+
+# 5.1.4 How do you do it: The join method
