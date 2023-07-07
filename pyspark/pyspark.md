@@ -2687,3 +2687,16 @@ Both methods will work only on non-null values. For the summary statistics, itâ€
 9. You can display a summary of the columns with the describe() or summary() methods. describe() has a fixed set of metrics, while summary() will take functions as parameters and apply them to all columns.
 
 ## Create a new data frame, logs_clean, that contains only the columns that do not end with ID.
+`logs.select(*[x for x in logs.columns if x.lower()[-2:]!='id']).show(5)`
+```
++----------+----------------+----------------+------------+------------+--------------------+----------------+--------+---------+---------+---------+---------+---------------+
+|   LogDate|        Duration|         EndTime|LogEntryDate|ProductionNO|        ProgramTitle|       StartTime|Subtitle|Producer1|Producer2|Language1|Language2|duration_in_sec|
++----------+----------------+----------------+------------+------------+--------------------+----------------+--------+---------+---------+---------+---------+---------------+
+|2018-08-01|02:00:00.0000000|08:00:00.0000000|  2018-08-01|      A39082|   Newlywed and Dead|06:00:00.0000000|    null|     null|     null|       94|     null|           7200|
+|2018-08-01|00:00:30.0000000|06:13:45.0000000|  2018-08-01|        null|15-SPECIALTY CHAN...|06:13:15.0000000|    null|     null|     null|     null|     null|             30|
+|2018-08-01|00:00:15.0000000|06:14:00.0000000|  2018-08-01|        null|3-PROCTER & GAMBL...|06:13:45.0000000|    null|     null|     null|     null|     null|             15|
+|2018-08-01|00:00:15.0000000|06:14:15.0000000|  2018-08-01|        null|12-CREDIT KARMA-B...|06:14:00.0000000|    null|     null|     null|     null|     null|             15|
+|2018-08-01|00:00:15.0000000|06:14:30.0000000|  2018-08-01|        null|3-L'OREAL CANADA-...|06:14:15.0000000|    null|     null|     null|     null|     null|             15|
++----------+----------------+----------------+------------+------------+--------------------+----------------+--------+---------+---------+---------+---------+---------------+
+only showing top 5 rows
+```
