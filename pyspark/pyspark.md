@@ -3139,5 +3139,335 @@ Our group routing starts with the `groupby()` method on the data frame shown in 
 ![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/76e210ed-e03f-4b1e-8f8d-8d3e7ed405c2)
 
 Figure 5.7 The GroupedData object resulting from grouping
+`Aggregating for the lazy`
 
+`agg()` also accepts a dictionary in the form `{column_name: aggregation_function}` where both are string. Because of this, we can rewrite listing 5.11 like so:
+```
+full_log.groupby("ProgramClassCD", "ProgramClass_Description").agg(
+    {"duration_seconds": "sum"}
+).withColumnRenamed("sum(duration_seconds)", "duration_total").orderBy(
+    "duration_total", ascending=False
+).show(
+    100, False
+)
+```
+This makes rapid prototyping very easy (you can, just like with column objects, use the "*" to refer to all columns). I personally don’t like this approach for most cases since you don’t get to alias your columns when creating them. I am including it since you will see it when reading other people’s code.
+```
+Listing 5.12 A GroupedData object representation
+
+full_log.groupby()
+# <pyspark.sql.group.GroupedData at 0x119baa4e0>
+```
+
+n chapter 3, we brought back the `GroupedData` into a data frame by using the `count()` method, which returns the count of each group. There are a few others, such as `min(), max(), mean(), or sum()`. We could have used the sum() method directly, but we wouldn’t have had the option of aliasing the resulting column and would have gotten stuck with sum(duration_seconds) for a name. Instead, we use the oddly named agg().
+
+The `agg()` method, for aggregate (or aggregation), will take one or more aggregate functions from the `pyspark.sql.functions` module we all know and love, and apply them on each group of the `GroupedData` object. In figure 5.8, I start on the left with our GroupedData object. Calling `agg()` with an appropriate aggregate function pulls the column from the group cell, extracts the values, and performs the function, yielding the answer. Compared to using the `sum()` function on the groupby object, agg() trades a few keystrokes for two main advantages:
+
+1. `agg()` takes an arbitrary number of aggregate functions, unlike using a summary method directly. You can’t chain multiple functions on `GroupedData` objects: the first one will transform it into a data frame, and the second one will fail.
+
+2. You can alias resulting columns so that you control their name and improve the robustness of your code.
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/0f69aea3-d3bb-4a3f-9fbe-1847a8461449)
+
+Figure 5.8 A data frame arising from the application of the `agg()` method (aggregate function: `F.sum() on Duration_seconds`)
+
+After the application of the aggregate function on our `GroupedData` object, we again have a data frame. We can then use the `orderBy()` method to order the data by decreasing order of `duration_total`, our newly created column. We finish by showing 100 rows, which is more than what the data frame contains, so it shows everything.
+Table 5.1 The types of programs we’ll consider as commercials
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/41d5b283-6eb3-4171-a891-5e8b5930ca62)
+
+agg() is not the only player in town
+
+You can also use groupby(), with the apply() (Spark 2.3+) and applyInPandas() (Spark 3.0+) method, in the creatively named split-apply-combine pattern. We explore this powerful tool in chapter 9. Other less-used (but still useful) methods are also available.
+
+# 5.2.2 A column is a column: Using agg() with custom column definitions
+When grouping and aggregating columns in PySpark, we have all the power of the `Column` object at our fingertips. This means that we can group by and aggregate on custom columns! For this section, we will start by building a definition of `duration_ commercial`, which takes the duration of a program only if it is a commercial, and use this in our `agg()` statement to seamlessly compute both the total duration and the commercial duration.
+
+If we encode the contents of table 5.1 into a PySpark definition, it gives us the next listing.
+```
+Listing 5.13 Computing only the commercial time for each program in our table
+
+F.when(
+    F.trim(F.col("ProgramClassCD")).isin(
+        ["COM", "PRC", "PGI", "PRO", "PSA", "MAG", "LOC", "SPO", "MER", "SOL"]
+    ),
+    F.col("duration_seconds"),
+).otherwise(0)
+```
+I think that the best way to describe the code this time is to literally translate it into plain English.
+
+`When` the field of the column ProgramClass, `trimmed` of spaces at the beginning and end of the field, `is in` our list of commercial codes, then take the value of the field in the column `duration_seconds`. `Otherwise`, use `zero` as a value.
+
+The blueprint of the F.when() function is as follows. It is possible to chain multiple when() if we have more than one condition and to omit the otherwise() if we’re okay with having null values when none of the tests are positive:
+```
+(
+F.when([BOOLEAN TEST], [RESULT IF TRUE])
+ .when([ANOTHER BOOLEAN TEST], [RESULT IF TRUE])
+ .otherwise([DEFAULT RESULT, WILL DEFAULT TO null IF OMITTED])
+)
+```
+We now have a column ready to use. While we could create the column before grouping by, using withColumn(), let’s take it up a notch and use our definition in the agg() clause directly. The following listing does just that, and at the same time, gives us our answer!
+`Listing 5.14 Using our new column into agg() to compute our final answer`
+```
+answer = (
+    full_log.groupby("LogIdentifierID")
+    .agg(
+        F.sum(                                                              ❶
+            F.when(                                                         ❶
+                F.trim(F.col("ProgramClassCD")).isin(                       ❶
+                    ["COM", "PRC", "PGI", "PRO", "LOC", "SPO", "MER", "SOL"]❶
+                ),                                                          ❶
+                F.col("duration_seconds"),                                  ❶
+            ).otherwise(0)                                                  ❶
+        ).alias("duration_commercial"),                                     ❶
+        F.sum("duration_seconds").alias("duration_total"),
+    )
+    .withColumn(
+        "commercial_ratio", F.col(
+            "duration_commercial") / F.col("duration_total")
+    )
+)
+ 
+answer.orderBy("commercial_ratio", ascending=False).show(1000, False)
+ 
+# +---------------+-------------------+--------------+---------------------+
+# |LogIdentifierID|duration_commercial|duration_total|commercial_ratio     |
+# +---------------+-------------------+--------------+---------------------+
+# |HPITV          |403                |403           |1.0                  |
+# |TLNSP          |234455             |234455        |1.0                  |
+# |MSET           |101670             |101670        |1.0                  |
+# |TELENO         |545255             |545255        |1.0                  |
+# |CIMT           |19935              |19935         |1.0                  |
+# |TANG           |271468             |271468        |1.0                  |
+# |INVST          |623057             |633659        |0.9832686034602207   |
+# [...]
+# |OTN3           |0                  |2678400       |0.0                  |
+# |PENT           |0                  |2678400       |0.0                  |
+# |ATN14          |0                  |2678400       |0.0                  |
+# |ATN11          |0                  |2678400       |0.0                  |
+# |ZOOM           |0                  |2678400       |0.0                  |
+# |EURO           |0                  |null          |null                 |
+# |NINOS          |0                  |null          |null                 |
+# +---------------+-------------------+--------------+---------------------+
+```
+❶ A column is a column: our F.when() function returns a column object that can be used in F.sum().
+Wait a moment—the commercial ratio of some channels is 1.0; are some channels only commercials? If we look at the total duration, we can see that some channels don’t broadcast much. Since one day is 86,400 seconds (24 × 60 × 60), we see that HPITV only has 403 seconds of programming in our data frame. I am not too concerned about this right now, but we always have the option to filter() our way out and remove the channels that broadcast very little (see chapter 2). Still, we accomplished our goal: we identified the channels with the most commercials. We finish this chapter with one last task: processing those null values.
+
+# 5.3 Taking care of null values: Drop and fill
+`null` values represent the absence of value. I think this is a great oxymoron: a value for no value? Philosophy aside, we have some `nulls` in our result set, and I would like them gone. This section covers the two easiest ways to deal with `null` values in a data frame: you can either `dropna()` the record containing them or `fillna()` the null with a value. In this section, we explore both options to see which is best for our analysis.
+
+# 5.3.1 Dropping it like it’s hot: Using dropna() to remove records with null values
+Our first option is to plainly ignore the records that have null values. In this section, I cover the different ways to use the `dropna()` method to drop records based on the presence of null values.
+
+`dropna()` is pretty easy to use. This data frame method takes three parameters:
+
+`how`, which can take the value `any` or `all`. If `any` is selected, PySpark will drop records where at least one of the fields is null. In the case of `all`, only the records where all fields are null will be removed. By default, PySpark will take the any mode.
+
+`thresh` takes an integer value. If set (its default is None), PySpark will ignore the how parameter and only drop the records with less than thresh `non-null values`.
+
+`subset` will take an optional list of columns that `dropna()` will use to make its decision.
+
+In our case, we want to keep only the records that have a commercial_ratio and that are `non-null`. We just have to pass our column to the subset parameter, like in the next listing.
+```
+sting 5.15 Dropping only the records that have a null commercial_ratio value
+
+answer_no_null = answer.dropna(subset=["commercial_ratio"])
+ 
+answer_no_null.orderBy(
+    "commercial_ratio", ascending=False).show(1000, False)
+ 
+# +---------------+-------------------+--------------+---------------------+
+# |LogIdentifierID|duration_commercial|duration_total|commercial_ratio     |
+# +---------------+-------------------+--------------+---------------------+
+# |HPITV          |403                |403           |1.0                  |
+# |TLNSP          |234455             |234455        |1.0                  |
+# |MSET           |101670             |101670        |1.0                  |
+# |TELENO         |545255             |545255        |1.0                  |
+# |CIMT           |19935              |19935         |1.0                  |
+# |TANG           |271468             |271468        |1.0                  |
+# |INVST          |623057             |633659        |0.9832686034602207   |
+# [...]
+# |OTN3           |0                  |2678400       |0.0                  |
+# |PENT           |0                  |2678400       |0.0                  |
+# |ATN14          |0                  |2678400       |0.0                  |
+# |ATN11          |0                  |2678400       |0.0                  |
+# |ZOOM           |0                  |2678400       |0.0                  |
+# +---------------+-------------------+--------------+---------------------+
+ 
+print(answer_no_null.count())  # 322
+```
+
+# 5.3.2 Filling values to our heart’s content using fillna()
+This section covers the `fillna()` method to replace `null` values.
+
+`fillna()` is even simpler than `dropna()`. This data frame method takes two parameters:
+
+The `value`, which is a Python int, float, string, or bool. PySpark will only fill the compatible columns; for instance, if we were to `fillna("zero")`, our commercial_ratio, being a double, would not be filled.
+
+The same `subset` parameter we encountered in `dropna()`. We can limit the scope of our filling to only the columns we want.
+
+In concrete terms, a null value in any of our numerical columns means that the value should be zero, so the next listing fills the null values with zero.
+```
+Listing 5.16 Filling our numerical records with zero using the fillna() method
+
+answer_no_null = answer.fillna(0)
+ 
+answer_no_null.orderBy(
+    "commercial_ratio", ascending=False).show(1000, False)
+ 
+# +---------------+-------------------+--------------+---------------------+
+# |LogIdentifierID|duration_commercial|duration_total|commercial_ratio     |
+# +---------------+-------------------+--------------+---------------------+
+# |HPITV          |403                |403           |1.0                  |
+# |TLNSP          |234455             |234455        |1.0                  |
+# |MSET           |101670             |101670        |1.0                  |
+# |TELENO         |545255             |545255        |1.0                  |
+# |CIMT           |19935              |19935         |1.0                  |
+# |TANG           |271468             |271468        |1.0                  |
+# |INVST          |623057             |633659        |0.9832686034602207   |
+# [...]
+# |OTN3           |0                  |2678400       |0.0                  |
+# |PENT           |0                  |2678400       |0.0                  |
+# |ATN14          |0                  |2678400       |0.0                  |
+# |ATN11          |0                  |2678400       |0.0                  |
+# |ZOOM           |0                  |2678400       |0.0                  |
+# +---------------+-------------------+--------------+---------------------+
+ 
+print(answer_no_null.count())  # 324     ❶
+```
+❶ We have the two additional records that listing 5.15 dropped.
+
+`The return of the dict`
+
+You can also pass a dict to the fillna() method, with the column names as key and the values as dict values. If we were to use this method for our filling, the code would be like the following code:
+```
+Filling our numerical records with zero using the fillna() method and a dict
+answer_no_null = answer.fillna(
+    {"duration_commercial": 0, "duration_total": 0, "commercial_ratio": 0}
+)
+```
+
+#5.4 What was our question again? Our end-to-end program
+At the beginning of the chapter, we gave ourselves an anchor question to start exploring the data and uncover some insights. Throughout the chapter, we’ve assembled a cohesive data set containing the relevant information needed to identify commercial programs and ranked the channels based on how much of their programming is commercial. In listing 5.17, I’ve assembled all the relevant code blocks introduced in the chapter into a single program you can spark-submit. The code is also available in the book’s repository under code/Ch05/commercials.py. The end-of-chapter exercises also use this code.
+
+Not counting data ingestion, comments, or docstring, our code is a rather small hundred or so lines of code. We could play code golf (trying to shrink the number of characters as much as we can), but I think we’ve struck a good balance between terseness and ease of reading. Once again, we haven’t paid much attention to the distributed nature of PySpark. Instead, we took a very descriptive view of our problem and translated it into code via PySpark’s powerful data frame abstraction and rich function ecosystems.
+
+This chapter is the last chapter of the first part of the book. You are now familiar with the PySpark ecosystem and how you can use its main data structure, the data frame, to ingest and manipulate two very common sources of data, textual and tabular. You know a variety and method and functions that can be applied to data frames and columns, and can apply those to your own data problem. You can also leverage the documentation provided through the PySpark docstrings, straight from the PySpark shell.
+
+There is a lot more you can get from the plain data manipulation portion of the book. Because of this, I recommend taking the time to review the PySpark online API and become proficient in navigating its structure. Now that you have a solid understanding of the data model and how to structure simple data manipulation programs, adding new functions to your PySpark quiver will be easy.
+
+The second part of the book builds heavily on what you’ve learned so far:
+
+We dig deeper into PySpark’s data model and find opportunities to refine our code. We will also look at PySpark’s column types, how they bridge to Python’s types, and how to use them to improve the reliability of our code.
+
+We go beyond two-dimensional data frames with complex data types, such as the array, the map, and the struct, by ingesting hierarchical data.
+
+We look at how PySpark modernizes SQL, an influential language for tabular data manipulation, and how you can blend SQL and Python in a single program.
+
+We look at promoting pure Python code to run in the Spark-distributed environment. We formally introduce a lower-level structure, the resilient distributed dataset (RDD) and its row-major model. We also look at UDFs and pandas UDFs as a way to augment the functionality of the data frame.
+
+```
+Listing 5.17 Our full program, ordering channels by decreasing proportion of commercials
+
+import os
+ 
+import pyspark.sql.functions as F
+from pyspark.sql import SparkSession
+ 
+spark = SparkSession.builder.appName(
+    "Getting the Canadian TV channels with the highest/lowest proportion of commercials."
+).getOrCreate()
+ 
+spark.sparkContext.setLogLevel("WARN")
+ 
+# Reading all the relevant data sources
+ 
+DIRECTORY = "./data/broadcast_logs"
+ 
+logs = spark.read.csv(
+    os.path.join(DIRECTORY, "BroadcastLogs_2018_Q3_M8.CSV"),
+    sep="|",
+    header=True,
+    inferSchema=True,
+)
+ 
+log_identifier = spark.read.csv(
+    os.path.join(DIRECTORY, "ReferenceTables/LogIdentifier.csv"),
+    sep="|",
+    header=True,
+    inferSchema=True,
+)
+cd_category = spark.read.csv(
+    os.path.join(DIRECTORY, "ReferenceTables/CD_Category.csv"),
+    sep="|",
+    header=True,
+    inferSchema=True,
+).select(
+    "CategoryID",
+    "CategoryCD",
+    F.col("EnglishDescription").alias("Category_Description"),
+)
+ 
+cd_program_class = spark.read.csv(
+    "./data/broadcast_logs/ReferenceTables/CD_ProgramClass.csv",
+    sep="|",
+    header=True,
+    inferSchema=True,
+).select(
+    "ProgramClassID",
+    "ProgramClassCD",
+    F.col("EnglishDescription").alias("ProgramClass_Description"),
+)
+ 
+# Data processing
+ 
+logs = logs.drop("BroadcastLogID", "SequenceNO")
+ 
+logs = logs.withColumn(
+    "duration_seconds",
+    (
+        F.col("Duration").substr(1, 2).cast("int") * 60 * 60
+        + F.col("Duration").substr(4, 2).cast("int") * 60
+        + F.col("Duration").substr(7, 2).cast("int")
+    ),
+)
+ 
+log_identifier = log_identifier.where(F.col("PrimaryFG") == 1)
+ 
+logs_and_channels = logs.join(log_identifier, "LogServiceID")
+ 
+full_log = logs_and_channels.join(cd_category, "CategoryID", how="left").join(
+    cd_program_class, "ProgramClassID", how="left"
+)
+ 
+answer = (
+    full_log.groupby("LogIdentifierID")
+    .agg(
+        F.sum(
+            F.when(
+                F.trim(F.col("ProgramClassCD")).isin(
+                    ["COM", "PRC", "PGI", "PRO", "LOC", "SPO", "MER", "SOL"]
+                ),
+                F.col("duration_seconds"),
+            ).otherwise(0)
+        ).alias("duration_commercial"),
+        F.sum("duration_seconds").alias("duration_total"),
+    )
+    .withColumn(
+        "commercial_ratio", F.col("duration_commercial") / F.col("duration_total")
+    )
+    .fillna(0)
+)
+ 
+answer.orderBy("commercial_ratio", ascending=False).show(1000, False)
+```
+
+# Summary
+1. PySpark implements seven join functionalities, using the common “what?,” “on what?,” and “how?” questions: cross, inner, left, right, full, left semi and left anti. Choosing the appropriate join method depends on how to process the records that resolve the predicates and those that do not.
+
+2. PySpark keeps lineage information when joining data frames. Using this information, we can avoid column naming clashes.
+
+3. You can group similar values using the `groupby()` method on a data frame. The method takes a number of column objects or strings representing columns and returns a GroupedData object.
+
+4. `GroupedData` objects are transitional structures. They contain two types of columns: the key columns, which are the one you “grouped by” with, and the group cell, which is a container for all the other columns. The most common way to return to a data frame is to summarize the values in the column via the `agg()` function or via one of the direct aggregation methods, such as `count()` or `min()`.
+
+5. You can drop records containing `null` values using `dropna()` or replace them with another value with the `fillna()` method.
 
