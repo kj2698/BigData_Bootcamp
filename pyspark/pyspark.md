@@ -2839,3 +2839,305 @@ logs.join(
 ```
 
 # 5.1.4 How do you do it: The join method
+A join method boils down to these two questions:
+
+What happens when the return value of the predicates is True?
+
+What happens when the return value of the predicates is False?
+
+Classifying the join methods based on the answer to these questions is an easy way to remember them.
+
+`TIP` PySpark’s joins are essentially the same as SQL’s. If you are already comfortable with them, feel free to skip this section.
+
+INNER JOIN
+
+An inner join `(how="inner")` is the most common join. PySpark will default to an inner join if you don’t pass a join method explicitly. It returns a record if the predicate is true and drops it if false. I consider an inner join the natural way to think of joins because they are very simple to reason about.
+
+If we look at our tables, we have a table very similar to figure 5.1. The record with the `LogServiceID == 3590` on the left will be duplicated because it matches two records in the right table. The result is illustrated in figure 5.2.
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/b592ae34-ceed-4251-9de7-4cda9a40c7de)
+
+Figure 5.2 An inner join. Each successful predicate creates a joined record.
+
+LEFT AND RIGHT OUTER JOIN
+
+Left `(how="left" or how="left_outer")` and right `(how="right" or how="right_ outer")`, as displayed in figure 5.4, are like an inner join in that they generate a record for a successful predicate. The difference is what happens when the predicate is false:
+
+A left (also called a left outer) join will add the unmatched records from the left table in the joined table, filling the columns coming from the right table with `null`.
+
+A right (also called a right outer) join will add the unmatched records from the right in the joined table, filling the columns coming from the left table with `null`.
+
+In practice, this means that your joined table is guaranteed to contain all the records of the table that feed the join (left or right). Visually, figure 5.3 shows this. Although `3417` doesn’t satisfy the predicate, it is still present in the left joined table. The same happens with `3883` and the right table. Just like an inner join, if the predicate is successful more than once, the record will be duplicated.
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/151af501-1867-4123-a694-095b56d1c980)
+
+Figure 5.3 A left and right joined table. All the records of the direction table are present in the resulting table.
+
+Left and right joins are very useful when you are not certain if the link table contains every key. You can then fill the null values (see listing 5.16) or process them knowing you didn’t drop any records.
+
+FULL OUTER JOIN
+
+A full outer `(how="outer", how="full"`, or `how="full_outer")` join is simply the fusion of a left and right join. It will add the unmatched records from the left and the right table, padding with null. It serves a similar purpose to the left and right join but is not as popular since you’ll generally have one (and only one) anchor table where you want to preserve all records.
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/26c465cb-42f5-41ae-84d4-96cfd3b8affa)
+
+Figure 5.4 A left and right joined table. We can see all the records from both tables.
+
+LEFT SEMI-JOIN AND LEFT ANTI-JOIN
+
+The left semi-join and left anti-join are less popular but still quite useful nonetheless.
+
+A left semi-join (`how="left_semi"`) is the same as an inner join, but keeps the columns in the left table. It also won’t duplicate the records in the left table if they fulfill the predicate with more than one record in the right table. Its main purpose is to filter records from a table based on a predicate that is depending on another table.
+
+A left anti-join (`how="left_anti"`) is the opposite of an inner join. It will keep only the records from the left table that do not match the predicate with any record in the right table. If a record from the left table matches a record from the right table, it gets dropped from the join operation.
+
+Our blueprint join is now finalized: we are going with an inner join since we want to keep only the records where the LogServiceID has additional information in our log_identifier table. Since our join is complete, I assign the result to a new variable: logs_and_channels.
+```
+Listing 5.5 Our join in PySpark, with all the parameters filled in
+
+logs_and_channels = logs.join(
+    log_identifier,
+    on="LogServiceID",
+    how="inner"          ❶
+)
+```
+❶ I could have omitted the how parameter outright, since inner join is the default.
+
+CROSS JOIN: THE NUCLEAR OPTION
+
+A cross join (`how="cross"`) is the nuclear option. It returns a record for every record pair, regardless of the value the predicates return. In our data frame example, our `logs` table contains four records and our `logs_identifier` five records, so the cross join will contain 4 × 5 = 20 records. The result is illustrated in figure 5.5.
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/1e78a254-75c7-4041-8961-be422e24bd43)
+Figure 5.5 A visual example of a cross join. Each record on the left is matched to every record on the right.
+
+Cross joins are seldom the operation you want, but they are useful when you want a table that contains every possible combination.
+
+`TIP` PySpark also provides an explicit `crossJoin()` method that takes the right data frame as a parameter.
+
+When joining data in a distributed environment, `“we don’t care about where data is” no longer works`. To be able to process a comparison between records, the data needs to be on the same machine. If not, PySpark will move the data in an operation called a `shuffle`. As you can imagine, moving large amounts of data over the network is very slow, and we should aim to avoid this when possible.
+This is one of the instances in which PySpark’s abstraction model shows some weakness. 
+
+# 5.1.5 Naming conventions in the joining world
+This section covers how PySpark manages column and data frame names. While this applies beyond the join world, name clashing is most painful when you are trying to assemble many data frames into one. We cover how to prevent name clashing and how to treat it if you inherit an already mangled data frame.
+
+By default, PySpark will not allow two columns to be named the same. If you create a column with `withColumn()` using an existing column name, PySpark will overwrite (or shadow) the column. When joining data frames, the situation is a little more complicated, as displayed in the following listing.
+```
+logs_and_channels_verbose = logs.join(
+    log_identifier, logs["LogServiceID"] == log_identifier["LogServiceID"]
+)
+ 
+logs_and_channels_verbose.printSchema()
+ 
+# root
+#  |-- LogServiceID: integer (nullable = true)                                   ❶
+#  |-- LogDate: timestamp (nullable = true)
+#  |-- AudienceTargetAgeID: integer (nullable = true)
+#  |-- AudienceTargetEthnicID: integer (nullable = true)
+#  [...]
+#  |-- duration_seconds: integer (nullable = true)
+#  |-- LogIdentifierID: string (nullable = true)
+#  |-- LogServiceID: integer (nullable = true)                                   ❷
+#  |-- PrimaryFG: integer (nullable = true)
+ 
+try:
+    logs_and_channels_verbose.select("LogServiceID")
+except AnalysisException as err:
+    print(err)
+ 
+# "Reference 'LogServiceID' is ambiguous, could be: LogServiceID, LogServiceID.;"❸
+```
+❶ This is one LogServiceID column . . .
+
+❷ . . . and this is another.
+
+❸ PySpark doesn’t know which column we mean: is it LogServiceID or LogServiceID?
+
+PySpark happily joins the two data frames but fails when we try to work with the ambiguous column. This is a common situation when working with data that follows the same convention for column naming. To solve this problem, in this section I show three methods, from the easiest to the most general.
+
+First, when performing an equi-join, I prefer using the simplified syntax, since it takes care of removing the second instance of the predicate column. This only works when using an equality comparison, since the data is identical in both columns from the predicate, which prevents information loss. I show the code and schema of the resulting data frame when using a simplified equi-join in the next listing.
+
+```
+Listing 5.7 Using the simplified syntax for equi-joins
+
+logs_and_channels = logs.join(log_identifier, "LogServiceID")
+ 
+logs_and_channels.printSchema()
+ 
+# root
+#  |-- LogServiceID: integer (nullable = true)
+#  |-- LogDate: timestamp (nullable = true)
+#  |-- AudienceTargetAgeID: integer (nullable = true)
+#  |-- AudienceTargetEthnicID: integer (nullable = true)
+#  |-- CategoryID: integer (nullable = true)
+#  [...]
+#  |-- Language2: integer (nullable = true)
+#  |-- duration_seconds: integer (nullable = true)
+#  |-- LogIdentifierID: string (nullable = true)    ❶
+#  |-- PrimaryFG: integer (nullable = true)         ❶
+```
+❶ No LogServiceID here: PySpark kept only the first referred column.
+
+The second approach relies on the fact that PySpark-joined data frames remember the origin of the columns. Because of this, we can refer to the `LogServiceID` columns using the same nomenclature as before (i.e., `log_identifier["LogServiceID"]`). We can then rename this column or delete it, and thus solve our issue. I use this approach in the following listing.
+
+```
+Listing 5.8 Using the origin name of the column for unambiguous selection
+
+logs_and_channels_verbose = logs.join(
+    log_identifier, logs["LogServiceID"] == log_identifier["LogServiceID"]
+)
+ 
+logs_and_channels.drop(log_identifier["LogServiceID"]).select(
+    "LogServiceID")                                             ❶
+ 
+# DataFrame[LogServiceID: int]
+```
+
+❶ By dropping one of the two duplicated columns, we can then use the name for the other without any problem.
+
+The last approach is convenient if you use the `Column` object directly. PySpark will not resolve the origin name when you rely on `F.col()` to work with columns. To solve this in the most general way, we need to `alias()` our tables when performing the join, as shown in the following listing.
+```
+Listing 5.9 Aliasing our tables to resolve the origin
+
+logs_and_channels_verbose = logs.alias("left").join(        ❶
+    log_identifier.alias("right"),                          ❷
+    logs["LogServiceID"] == log_identifier["LogServiceID"],
+)
+ 
+logs_and_channels_verbose.drop(F.col("right.LogServiceID")).select(
+    "LogServiceID"
+)                                                           ❸
+ 
+# DataFrame[LogServiceID: int]
+```
+❶ Our logs table gets aliased as left.
+
+❷ Our log_identifier gets aliased as right.
+
+❸ F.col() will resolve left and right as a prefix for the column names.
+
+All three approaches are valid. The first one works only in the case of equi-joins, but the two others are mostly interchangeable. PySpark gives you a lot of control over the structure and naming of your data frame but requires you to be explicit.
+
+This section packed in a lot of information about joins, a very important tool when working with interrelated data frames. Although the possibilities are endless, the syntax is simple and easy to understand: `left.join(right` decides the first parameter. `on` decides if it’s a match. `how` indicates how to operate on match success and failures.
+
+Now that the first join is done, we will link two additional tables to continue our data discovery and processing. The `CategoryID` table contains information about the types of programs, and the `ProgramClassID` table contains the data that allows us to pinpoint the commercials.
+
+This time, we are performing `left` joins since we are not entirely certain about the existence of the keys in the link table. In listing 5.10, we follow the same process as we did for the `log_identifier` table in one fell swoop:
+
+We read the table using the `SparkReader.csv` and the same configuration as our other tables.
+
+We keep the relevant columns.
+
+We join the data to our `logs_and_channels` table, using PySpark’s method chaining.
+
+```
+Listing 5.10 Linking the category and program class tables using two left joins
+
+DIRECTORY = "./data/broadcast_logs"
+ 
+cd_category = spark.read.csv(
+    os.path.join(DIRECTORY, "ReferenceTables/CD_Category.csv"),
+    sep="|",
+    header=True,
+    inferSchema=True,
+).select(
+    "CategoryID",
+    "CategoryCD",
+    F.col("EnglishDescription").alias("Category_Description"),      ❶
+)
+ 
+cd_program_class = spark.read.csv(
+    os.path.join(DIRECTORY, "ReferenceTables/CD_ProgramClass.csv"),
+    sep="|",
+    header=True,
+    inferSchema=True,
+).select(
+    "ProgramClassID",
+    "ProgramClassCD",
+    F.col("EnglishDescription").alias("ProgramClass_Description"),  ❷
+)
+ 
+full_log = logs_and_channels.join(cd_category, "CategoryID", how="left").join(
+    cd_program_class, "ProgramClassID", how="left"
+)
+```
+❶ We’re aliasing the EnglishDescription column to remember what it maps to.
+
+❷ We’re also aliasing here, but for the program class.
+
+With our table nicely augmented, let’s move to our last step: summarizing the table using groupings.
+
+## Exercise 5.1
+
+Assume two tables, left and right, each containing a column named my_column. What is the result of this code?
+
+one = left.join(right, how="left_semi", on="my_column")
+two = left.join(right, how="left_anti", on="my_column")
+ 
+one.union(two)
+
+##Exercise 5.2
+
+Assume two data frames, red and blue. Which is the appropriate join to use in red.join(blue, ...) if you want to join red and blue and keep all the records satisfying the predicate?
+
+a) Left
+
+b) Right
+
+c) Inner
+
+d) Theta
+
+e) Cross
+
+##Exercise 5.3
+
+Assume two data frames, red and blue. Which is the appropriate join to use in red.join(blue, ...) if you want to join red and blue and keep all the records satisfying the predicate and the records in the blue table?
+
+a) Left
+
+b) Right
+
+c) Inner
+
+d) Theta
+
+e) Cross
+
+# 5.2 Summarizing the data via groupby and GroupedData
+This section covers how to summarize a data frame into more granular dimensions (versus the entire data frame) via the `groupby()` method. We already grouped our text data frame in 3; this section goes deeper into the specifics of grouping. Here, I introduce the `GroupedData` object and its usage. In practical terms, we’ll use `groupby()` to answer our original question: what are the channels with the greatest and least proportion of commercials? To answer this, we have to take each channel and sum the `duration_seconds` in two ways:
+
+One to get the number of seconds when the program is a commercial
+
+One to get the number of seconds of total programming
+
+# 5.2.1 A simple groupby blueprint
+Since you are already acquainted with the basic syntax of groupby(), this section starts by presenting a full code block that computes the total duration (in seconds) of the program class. In the next listing we perform the grouping, compute the aggregate function, and present the results in decreasing order.
+```
+Listing 5.11 Displaying the most popular types of programs
+(full_log
+ .groupby("ProgramClassCD", "ProgramClass_Description")
+ .agg(F.sum("duration_seconds").alias("duration_total"))
+ .orderBy("duration_total", ascending=False).show(100, False)
+ )
+ 
+# +--------------+--------------------------------------+--------------+
+# |ProgramClassCD|ProgramClass_Description              |duration_total|
+# +--------------+--------------------------------------+--------------+
+# |PGR           |PROGRAM                               |652802250     |
+# |COM           |COMMERCIAL MESSAGE                    |106810189     |
+# |PFS           |PROGRAM FIRST SEGMENT                 |38817891      |
+# |SEG           |SEGMENT OF A PROGRAM                  |34891264      |
+# |PRC           |PROMOTION OF UPCOMING CANADIAN PROGRAM|27017583      |
+# |PGI           |PROGRAM INFOMERCIAL                   |23196392      |
+# |PRO           |PROMOTION OF NON-CANADIAN PROGRAM     |10213461      |
+# |OFF           |SCHEDULED OFF AIR TIME PERIOD         |4537071       |
+# [... more rows]
+# |COR           |CORNERSTONE                           |null          |
+# +--------------+--------------------------------------+--------------+
+```
+This small program has a few new parts, so let’s review them one by one.
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/cd6a4a46-99f1-4e0a-97c7-d4d6ab8f880c)
+
+Figure 5.6 The original data frame, with the focus on the columns we are grouping by
+Our group routing starts with the `groupby()` method on the data frame shown in figure 5.6. A “grouped by” data frame is no longer a data frame; instead, it becomes a `GroupedData` object and is displayed in all its glory in listing 5.12. This object is a transitional object: you can’t really inspect it (there is no `.show()` method), and it’s waiting for further instructions to become showable again. Illustrated, it would look like the right-hand side of figure 5.7.
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/76e210ed-e03f-4b1e-8f8d-8d3e7ed405c2)
+
+Figure 5.7 The GroupedData object resulting from grouping
+
+
