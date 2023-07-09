@@ -3067,9 +3067,60 @@ With our table nicely augmented, let’s move to our last step: summarizing the 
 Assume two tables, left and right, each containing a column named my_column. What is the result of this code?
 
 one = left.join(right, how="left_semi", on="my_column")
+
 two = left.join(right, how="left_anti", on="my_column")
  
 one.union(two)
+
+```
+left=spark.createDataFrame([[1,'hi'],[2,'hey'],[3,'yo'],[4,'yoyo']],['col1','col2'])
+>>> left.show()
++----+----+
+|col1|col2|
++----+----+
+|   1|  hi|
+|   2| hey|
+|   3|  yo|
+|   4|yoyo|
++----+----+
+
+>>> right=spark.createDataFrame([[2,'hello'],[2,'sup']],['col1','col2'])
+>>> right.show()
++----+-----+
+|col1| col2|
++----+-----+
+|   2|hello|
+|   2|  sup|
++----+-----+
+
+one=left.join(right,on='col1',how='left_semi')
+>>> one.show()
++----+----+
+|col1|col2|
++----+----+
+|   2| hey|
++----+----+
+
+ two=left.join(right,on='col1',how='left_anti')
+>>> two.show()
++----+----+
+|col1|col2|
++----+----+
+|   1|  hi|
+|   3|  yo|
+|   4|yoyo|
++----+----+
+
+one.union(two).show()
++----+----+
+|col1|col2|
++----+----+
+|   2| hey|
+|   1|  hi|
+|   3|  yo|
+|   4|yoyo|
++----+----+
+```
 
 ##Exercise 5.2
 
