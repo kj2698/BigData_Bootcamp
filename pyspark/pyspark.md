@@ -3522,3 +3522,167 @@ answer.orderBy("commercial_ratio", ascending=False).show(1000, False)
 
 5. You can drop records containing `null` values using `dropna()` or replace them with another value with the `fillna()` method.
 
+# 6.1 Reading JSON data: Getting ready for the schemapocalypse
+Every data-processing job in PySpark starts with data ingestion; JSON data is no exception. This section explains what JSON is, how to use the specialized JSON reader with PySpark, and how a JSON file is represented within a data frame. After this, you’ll be able to reason about your JSON data and map it to PySpark data types.
+
+For this chapter, we use a JSON dump of information about the TV show Silicon Valley from TV Maze. I uploaded the data in the book’s repository (under ./data/ shows), but you can download it directly from the TV Maze API (available online: http://mng.bz/g4oR). A simplified version of the JSON document is illustrated in the next listing; the main parts are numerated, and I go over each of them.
+
+```
+Listing 6.1 A simplified sample of the JSON object
+
+{                              ❶
+  "id":  143,                  ❷
+  "name": "Silicon Valley",
+  "type": "Scripted",
+  "language": "English",
+  "genres": [                  ❸
+    "Comedy"
+  ],
+  "network": {                 ❹
+    "id": 8,
+    "name": "HBO",
+    "country": {
+      "name": "United States",
+      "code": "US",
+      "timezone": "America/New_York"
+    }
+  },
+  "_embedded": {
+    "episodes": [              ❺
+      {
+        "id": 10897,
+        "name": "Minimum Viable Product",
+        "season": 1,
+        "number": 1,
+      },
+      {
+        "id": 10898,
+        "name": "The Cap Table",
+        "season": 1,
+        "number": 2,
+      }
+    ]
+  }
+}
+```
+
+❶ At the top level, a JSON object looks like a Python dictionary. Both use the brackets to delimit object boundaries.
+
+❷ JSON data is encoded into key-value pairs, just like in a dictionary. JSON keys must be strings.
+
+❸ JSON arrays can contain multiple values (here, we have a single string).
+
+❹ Objects can be values too; you can nest objects within one another this way.
+
+❺ Our episodes are each objects contained within an array.
+
+# 6.1.1 Starting small: JSON data as a limited Python dictionary
+JSON data is a long-standing data interchange format that became massively popular for its readability and its relatively small size. JSON stands for JavaScript Object Notation, a fitting name considering that each JSON file can be thought of as a JavaScript object. The official JSON website (https://json.org) contains a more formal introduction to the JSON data format. Since we focus on the Python programming language, I will frame my exploration of the JSON spec through the lens of the Python family of data structures.
+
+Looking at listing 6.1 and figure 6.1, we notice that our document starts with an opening curly bracket, {. Every valid JSON document is an object;1 JavaScript uses the bracket as an object delimiter. In Python, the direct equivalent of an object, as far as JSON goes, is the dictionary. Just like a dictionary, a JSON object has keys and values. The top-level object in a JSON document is called the root object or element.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/607c3236-bed5-4dbd-bbec-151ff6e56f01)
+
+Figure 6.1 A simple JSON object, illustrating its main components: the root object, the keys, and the values. Objects use bracket delimiters and arrays/lists use square bracket delimiters. JSON uses quotes for string values but not for numerical values.
+
+A JSON object—or a Python dictionary—both have keys and values. According to the JSON specification, the keys of a JSON object must be a string. Python dictionaries don’t have that limitation, but we can adapt without any problems.
+
+Finally, the values of a JSON object can represent a few data types:
+
+Strings (which use the double-quote character `"` as a quoting character).
+
+Numbers (JavaScript does not differentiate between integers and floating-point numbers).
+
+Booleans (`true` or `false`, which are not capitalized like in Python).
+
+`null`, which is akin to the Python None.
+
+Arrays, which are delimited by the square bracket `[` . They are akin to the Python list.
+
+Objects, which are delimited by the curly bracket `{`.
+
+If you make the switch between the JSON and Python terms (arrays to lists and objects to dictionaries), working with JSON will be a breeze in Python. To finish our analogy, I read in the next listing: my simple JSON object using the json module, available in the Python standard library.
+```
+Listing 6.2 Reading a simple JSON document as a Python dictionary
+
+import json                         ❶
+ 
+sample_json = """{
+  "id": 143,
+  "name": "Silicon Valley",
+  "type": "Scripted",
+  "language": "English",
+  "genres": [
+    "Comedy"
+  ],
+  "network": {
+    "id": 8,
+    "name": "HBO",
+    "country": {
+      "name": "United States",
+      "code": "US",
+      "timezone": "America/New_York"
+    }
+  }
+}"""
+ 
+document = json.loads(sample_json)
+print(document)                     ❷
+# {'id': 143,
+#  'name': 'Silicon Valley',
+#  'type': 'Scripted',
+#  'language': 'English',
+#  'genres': ['Comedy'],
+#  'network': {'id': 8,
+#   'name': 'HBO',
+#   'country': {'name': 'United States',
+#    'code': 'US',
+#    'timezone': 'America/New_York'}}}
+ 
+type(document)
+# dict
+```
+❶ I import the json module, available in the Python standard library.
+
+❷ Our loaded document looks like a Python dictionary with string keys. Python recognized that 143 was an integer and parsed the number as such.
+
+❸ Our loaded document is of type dict.
+
+# 6.1.2 Going bigger: Reading JSON data in PySpark
+This section introduces reading JSON data using the specialized JSON `SparkReader` object. We discuss the most common and useful parameters of the reader. With this information handy, you will be equipped to read JSON files into a data frame.
+
+For this section, we will take the data introduced at the beginning of the chapter. We read the JSON document in one fell swoop, using the specialized `SparkReader` object. The result is available in the following listing.
+```
+Listing 6.3 Ingesting a JSON document using the JSON specialized SparkReader
+
+from pyspark.sql import SparkSession
+ 
+spark = SparkSession.builder.getOrCreate()
+ 
+shows = spark.read.json("./data/shows/shows-silicon-valley.json")   ❶
+ 
+shows.count()
+# 1
+```
+
+❶ The specialized SparkReader object is accessible by calling the json method on spark.read, just like with CSV or text data.
+
+❷ The document I ingested contains only a single record.
+
+Two elements pop to mind when reviewing the code. First, we do not use any optional parameters. Unlike CSV data, JSON data doesn’t need to worry about record delimiters or inferring data types (JSON forces the usage of string delimiters, so the value `03843` is a number, where `"03843"` is a string), which reduces the need to doctor the reading process by a fair amount. Many options are available for relaxing the JSON specification (e.g., allowing single quotes for strings, comments, or unquoted keys). If your JSON document is “up-to-spec” and you have no special need for some values not covered within the data types that JSON provided, the stock reader will work fine. When the data is less than pristine, the options to bend the reader to your will are there, ready to assist. I will introduce method options as we need them, but if you can’t wait any longer, you can read the docstring for the `json` method of the `DataFrameReader` object.
+
+The second odd thing about our data ingestion is that we only have a single record. If we take a moment to reflect on this, it makes sense: TVMaze provides the result of our query in a single document. In the PySpark world, reading JSON follows this rule: one JSON document, one line, one record. This means that if you want to have multiple JSON records in the same document, you need to have one document per line and no new line within your document. The JSON Lines document format (http://jsonlines.org/) has a more formal definition if you are interested. By opening the JSON document we read in listing 6.3 (a regular text editor will do), you see that we only have a single line in the file.
+
+If you want to ingest multiple documents across multiple files, you need to set the `multiLine` (careful about the capital `L`!) parameter to true. This will change the JSON reading rule to the following: one JSON document, one file, one record. With this, you can use the glob pattern (using a `*` to refer to multiple files), as seen in chapter 3, or pass a directory containing only JSON files with the same schema as an argument to the reader. I made two more shows available in the `data/shows` directory (Breaking Bad and The Golden Girls, to cover a wide gamut). In the next listing, I read the three JSON documents in one fell swoop and show that I indeed have three records.
+
+```
+Listing 6.4 Reading multiple JSON documents using the multiLine option
+
+three_shows = spark.read.json("./data/shows/shows-*.json", multiLine=True)
+ 
+three_shows.count()
+# 3
+ 
+assert three_shows.count() == 3
+```
+
