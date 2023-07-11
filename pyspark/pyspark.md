@@ -3396,7 +3396,7 @@ answer_no_null = answer.fillna(
 )
 ```
 
-#5.4 What was our question again? Our end-to-end program
+# 5.4 What was our question again? Our end-to-end program
 At the beginning of the chapter, we gave ourselves an anchor question to start exploring the data and uncover some insights. Throughout the chapter, we’ve assembled a cohesive data set containing the relevant information needed to identify commercial programs and ranked the channels based on how much of their programming is commercial. In listing 5.17, I’ve assembled all the relevant code blocks introduced in the chapter into a single program you can spark-submit. The code is also available in the book’s repository under code/Ch05/commercials.py. The end-of-chapter exercises also use this code.
 
 Not counting data ingestion, comments, or docstring, our code is a rather small hundred or so lines of code. We could play code golf (trying to shrink the number of characters as much as we can), but I think we’ve struck a good balance between terseness and ease of reading. Once again, we haven’t paid much attention to the distributed nature of PySpark. Instead, we took a very descriptive view of our problem and translated it into code via PySpark’s powerful data frame abstraction and rich function ecosystems.
