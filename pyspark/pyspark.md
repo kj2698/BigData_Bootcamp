@@ -3686,3 +3686,988 @@ three_shows.count()
 assert three_shows.count() == 3
 ```
 
+# 6.2 Breaking the second dimension with complex data types
+This section takes the JSON data model and applies it in the context of the PySpark data frame. I go a little deeper into PySpark’s complex data types: the array and the map. I take PySpark’s columnar model and translate it into hierarchical data models. At the end of this section, you’ll know how to represent, access, and process container types in a PySpark data frame. This will prove useful in processing hierarchical or object oriented data, like the shows data we are working with.
+
+PySpark’s ability to use complex types inside the data frame is what allows its remarkable flexibility. While you still have the tabular abstraction to work with, your cells are supercharged since they can contain more than a single value. It’s just like going from 2D to 3D, and even beyond!
+
+A complex type isn’t complex in the Python sense: where Python uses complex data in the sense of images, maps, video files and so on, Spark uses this term to refer to data types that contain other types. Because of this, I also use the term container or compound type as a synonym for complex types. I find them to be less ambiguous; a container-type column contains values of other types. In Python, the main complex types are the list, the tuple, and the dictionary. In PySpark, we have the array, the map, and the struct. With these, you will be able to express an infinite amount of data layout.
+
+No type left behind: If you want to dig deeper into scalar data types
+
+In chapter 1 to 3, we mostly dealt with scalar data, which contains a single value. Those types map seamlessly to Python types; for instance, a string type PySpark column maps to a Python string. Because Spark borrows the Java/Scala type convention, there are some peculiarities that I introduce as we encounter them.
+
+I think I’ve held the punch for long enough: behold, the next listing reveals our data frame’s schema!
+```
+Listing 6.5 Nested structures with a deeper level of indentation
+
+shows.printSchema()
+# root                                          ❶
+#  |-- _embedded: struct (nullable = true)      ❷
+#  |    |-- episodes: array (nullable = true)
+#  |    |    |-- element: struct (containsNull = true)
+#  |    |    |    |-- _links: struct (nullable = true)
+#  |    |    |    |    |-- self: struct (nullable = true)
+#  |    |    |    |    |    |-- href: string (nullable = true)
+#  |    |    |    |-- airdate: string (nullable = true)
+#  |    |    |    |-- airstamp: string (nullable = true)
+#  |    |    |    |-- airtime: string (nullable = true)
+#  |    |    |    |-- id: long (nullable = true)
+#  |    |    |    |-- image: struct (nullable = true)
+#  |    |    |    |    |-- medium: string (nullable = true)
+#  |    |    |    |    |-- original: string (nullable = true)
+#  |    |    |    |-- name: string (nullable = true)
+#  |    |    |    |-- number: long (nullable = true)
+#  |    |    |    |-- runtime: long (nullable = true)
+#  |    |    |    |-- season: long (nullable = true)
+#  |    |    |    |-- summary: string (nullable = true)
+#  |    |    |    |-- url: string (nullable = true)
+#  |-- _links: struct (nullable = true)
+#  |    |-- previousepisode: struct (nullable = true)
+#  |    |    |-- href: string (nullable = true)
+#  |    |-- self: struct (nullable = true)
+#  |    |    |-- href: string (nullable = true)
+#  |-- externals: struct (nullable = true)
+#  |    |-- imdb: string (nullable = true)
+#  |    |-- thetvdb: long (nullable = true)
+#  |    |-- tvrage: long (nullable = true)
+#  |-- genres: array (nullable = true)
+#  |    |-- element: string (containsNull = true)
+#  |-- id: long (nullable = true)
+# [and more columns...]
+```
+
+❶ Like a JSON document, the top-level element of our data frame schema is called the root.
+
+❷ A complex column introduces a new level of nesting in the data frame schema.
+
+I had to truncate the schema so that we can focus on the important point here: the hierarchy within the schema. PySpark took every top-level key—the keys from the root object—and parsed them as columns (see the next listing for the top-level columns). When a column had a scalar value, the type was inferred according to the JSON specification we saw in section 6.1.1.
+
+```
+Listing 6.6 Printing the columns of the shows data frame
+
+print(shows.columns)
+ 
+# ['_embedded', '_links', 'externals', 'genres', 'id', 'image',
+#  'language', 'name', 'network', 'officialSite', 'premiered',
+#  'rating', 'runtime', 'schedule', 'status', 'summary', 'type',
+#  'updated', 'url', 'webChannel', 'weight']
+```
+
+# 6.2.1 When you have more than one value: The array
+In this section, I introduce the simplest container type in PySpark: the array. I explain where the array is most commonly used as well as the main methods to create, operate, and extract data from an array column.
+
+In section 6.1.1, I loosely equated a JSON array to a Python list. In the PySpark world, the same follows, with an important distinction: PySpark arrays are containers for values of the same type. This precision has an important impact on how PySpark ingests both JSON documents and, more generally, nested structures, so I’ll explain this in more detail.
+
+In listing 6.5, the genres array points to an element item, which is of type string (I reproduced the relevant section). Like any other type within the data frame, we need to provide a complete type story for any complex type, including the array. With this loss of flexibility in what an array can contain, we gain a better grasp of the data contained within the column and can avoid hard-to-track bugs. We will refer to array columns using the Array[element] notation (e.g., Array[string] represents a column containing an array of strings):
+
+```
+|-- genres: array (nullable = true)
+|    |-- element: string (containsNull = true)
+```
+
+`WARNING` PySpark will not raise an error if you try to read an array-type column with multiple types. Instead, it will simply default to the lowest common denominator, usually the string. This way, you don’t lose any data, but you will get a surprise later if your code expects an array of another type.
+
+To work a little with the array, I select a subset of the shows data frame so as to not lose focus in this huge schema. In the next listing, I select the name and genres columns and show the record. Unfortunately, Silicon Valley is a single-genre show, so our array is a little too basic for my taste. Let’s make it a little more interesting.
+```
+Listing 6.7 Selecting the name and genres columns
+
+array_subset = shows.select("name", "genres")
+ 
+array_subset.show(1, False)
+# +--------------+--------+
+# |name          |genres  |
+# +--------------+--------+
+# |Silicon Valley|[Comedy]|
+# +--------------+--------+
+```
+
+Conceptually, our genres column can be thought of as containing lists of elements within each record. In chapter 2, we had a similar situation with breaking our lines into words. Visually, it looks like figure 6.2: our Comedy value is within a list-type structure, inside the column.
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/155219b3-ba8a-4c5a-95e7-94e00dde624a)
+
+Figure 6.2 A visual depiction of the array_subset data frame. The genres column is of type Array[string], meaning that it contains any number of string values in a list-type container.
+
+To get to the value inside the array, we need to extract them. PySpark provides a very pythonic way to work with arrays as if they were lists. In listing 6.8, I show the main ways to access the (only) element in my array. Arrays are zero-indexed when retrieving elements inside, just like Python lists. Unlike Python lists, passing an index that would go beyond the content of the list returns null.
+
+```
+Listing 6.8 Extracting elements from an array
+
+import pyspark.sql.functions as F
+ 
+array_subset = array_subset.select(
+    "name",
+    array_subset.genres[0].alias("dot_and_index"),           ❶
+    F.col("genres")[0].alias("col_and_index"),
+    array_subset.genres.getItem(0).alias("dot_and_method"),  ❷
+    F.col("genres").getItem(0).alias("col_and_method"),
+)
+ 
+array_subset.show()
+ 
+# +--------------+-------------+-------------+--------------+--------------+
+# |          name|dot_and_index|col_and_index|dot_and_method|col_and_method|
+# +--------------+-------------+-------------+--------------+--------------+
+# |Silicon Valley|       Comedy|       Comedy|        Comedy|        Comedy|
+# +--------------+-------------+-------------+--------------+--------------+
+```
+❶ Use the dot notation and the usual square bracket with the index inside.
+
+❷ Instead of the index in square bracket syntax, we can use the getItem() method on the Column object.
+
+WARNING Although the square bracket approach looks very pythonic, you can’t use it as a slicing tool. PySpark will accept only one integer as an index, so array_subset.genres[0:10] will fail and return an AnalysisException with a cryptic error message. Echoing chapter 1, PySpark is a veneer on top of Spark (Java/Scala). This provides a consistent API across languages at the expense of not always feeling integrated in the host language; here, PySpark fails to be pythonic by not allowing the slicing of arrays.
+
+PySpark’s array functions—available in the pyspark.sql.functions module—are almost all prefixed with the array_ keyword (some, like size() in listing 6.9, can be applied to more than one complex type and therefore are not prefixed). It is therefore pretty easy to review them in one fell swoop in the API documentation (see http://mng.bz/5Kj1). Next, we use functions to create a beefier array and do a little exploration with it. In listing 6.9, I perform the following tasks:
+
+I create three literal columns (using lit() to create scalar columns, then make_array()) to create an array of possible genres. PySpark won’t accept Python lists as an argument to lit(), so we have to go the long route by creating individual scalar columns before combining them into a single array. Chapter 8 covers UDFs that can return array columns.
+
+I then use the function array_repeat() to create a column repeating the Comedy string we extracted in listing 6.8 five times. I finally compute the size of both columns, de-dupe both arrays, and intersect them, yielding our original [Comedy] array from listing 6.7.
+
+```
+Listing 6.9 Performing multiple operations on an array column
+
+array_subset_repeated = array_subset.select(
+    "name",
+    F.lit("Comedy").alias("one"),
+    F.lit("Horror").alias("two"),
+    F.lit("Drama").alias("three"),
+    F.col("dot_and_index"),
+).select(
+    "name",
+    F.array("one", "two", "three").alias("Some_Genres"),                ❶
+    F.array_repeat("dot_and_index", 5).alias("Repeated_Genres"),        ❷
+)
+ 
+array_subset_repeated.show(1, False)
+ 
+# +--------------+-----------------------+----------------------------------------+
+# |name          |Some_Genres            |Repeated_Genres                         |
+# +--------------+-----------------------+----------------------------------------+
+# |Silicon Valley|[Comedy, Horror, Drama]|[Comedy, Comedy, Comedy, Comedy, Comedy]|
+# +--------------+-----------------------+----------------------------------------+
+ 
+array_subset_repeated.select(
+    "name", F.size("Some_Genres"), F.size("Repeated_Genres")            ❸
+).show()
+ 
+# +--------------+-----------------+---------------------+
+# |          name|size(Some_Genres)|size(Repeated_Genres)|
+# +--------------+-----------------+---------------------+
+# |Silicon Valley|                3|                    5|
+# +--------------+-----------------+---------------------+
+array_subset_repeated.select(
+    "name",
+    F.array_distinct("Some_Genres"),                                    ❹
+    F.array_distinct("Repeated_Genres"),                                ❹
+).show(1, False)
+ 
+# +--------------+---------------------------+-------------------------------+
+# |name          |array_distinct(Some_Genres)|array_distinct(Repeated_Genres)|
+# +--------------+---------------------------+-------------------------------+
+# |Silicon Valley|[Comedy, Horror, Drama]    |[Comedy]                       |
+# +--------------+---------------------------+-------------------------------+
+ 
+array_subset_repeated = array_subset_repeated.select(
+    "name",
+    F.array_intersect("Some_Genres", "Repeated_Genres").alias(          ❺
+        "Genres"
+    ),
+)
+ 
+array_subset_repeated.show()
+ 
+# +--------------+--------+
+# |          name|  Genres|
+# +--------------+--------+
+# |Silicon Valley|[Comedy]|
+# +--------------+--------+
+```
+
+❶ Creating an array from three columns using the array() function
+
+❷ Duplicating the values five times within an array using array_repeat()
+
+❸ Computing the number of elements into both arrays using the size() function
+
+❹ Removing duplicates into both arrays with the array_distinct() method. Since Some_Genres doesn’t have any duplicates, the values within the array don’t change.
+
+❺ By intersecting both arrays using array_intersect(), the only value common to both arrays is Comedy.
+
+When you want to know the position of a value in an array, you can use array_ position(). This function takes two arguments:
+
+An array column to perform the search
+
+A value to search for within the array
+
+It returns the cardinal position of the value within the array column (first value is 1, second value is 2, etc.). If the value does not exist, the function returns 0. I illustrate this in listing 6.10. This inconsistency between zero-based indexing (for getItem()) and one-based/cardinal indexing (for array_position()) can be confusing: I remember this difference by calling the position via getItem() or the square brackets index versus position for the return value of the array_position() function, just like in the PySpark API.
+
+```
+Listing 6.10 Using array_position() to search for Genres string
+
+array_subset_repeated.select(
+    "Genres", F.array_position("Genres", "Comedy")
+).show()
+ 
+# +--------+------------------------------+
+# |  Genres|array_position(Genres, Comedy)|
+# +--------+------------------------------+
+# |[Comedy]|                             1|
+# +--------+------------------------------+
+```
+
+# 6.2.2 The map type: Keys and values within a column
+This section covers the map column type and where it can be used successfully. Maps are less common as a column type; reading a JSON document won’t yield columns of type map, but they are nonetheless useful to represent simple key-value pairs.
+
+A map is conceptually very close to a Python typed dictionary: you have keys and values just like in a dictionary, but as with the array, the keys need to be of the same type, and the values need to be of the same type (the type for the keys can be different than the type for the values). Values can be null, but keys can’t, just like with Python dictionaries.
+
+One of the easiest ways to create a map is from two columns of type array. We will do so by collecting some information about the name, language, type, and url columns into an array and using the map_from_arrays() function, like in the next listing.
+
+```
+Listing 6.11 Creating a map from two arrays
+
+columns = ["name", "language", "type"]
+ 
+shows_map = shows.select(
+    *[F.lit(column) for column in columns],
+    F.array(*columns).alias("values"),
+)
+ 
+shows_map = shows_map.select(F.array(*columns).alias("keys"), "values")
+ 
+shows_map.show(1)
+# +--------------------+--------------------+
+# |                keys|              values|
+# +--------------------+--------------------+
+# |[name, language, ...|[Silicon Valley, ...|
+# +--------------------+--------------------+
+ 
+shows_map = shows_map.select(
+    F.map_from_arrays("keys", "values").alias("mapped")
+)
+ 
+shows_map.printSchema()
+ 
+# root
+#  |-- mapped: map (nullable = false)
+#  |    |-- key: string
+#  |    |-- value: string (valueContainsNull = true)
+shows_map.show(1, False)
+ 
+# +---------------------------------------------------------------+
+# |mapped                                                         |
+# +---------------------------------------------------------------+
+# |[name -> Silicon Valley, language -> English, type -> Scripted]|
+# +---------------------------------------------------------------+
+ 
+shows_map.select(
+    F.col("mapped.name"),      ❶
+    F.col("mapped")["name"],   ❷
+    shows_map.mapped["name"],  ❸
+).show()
+ 
+# +--------------+--------------+--------------+
+# |       name   |  mapped[name]|  mapped[name]|
+# +--------------+--------------+--------------+
+# |Silicon Valley|Silicon Valley|Silicon Valley|
+# +--------------+--------------+--------------+
+```
+
+❶ We can access the value corresponding to a key using the dot notation within the col() function.
+
+❷ We can also pass the key value within brackets, as we can in a Python dictionary.
+
+❸ Just like with the array, we can use dot notation to get the column and then use the bracket to select the right key.
+
+Just like with the array, PySpark provides a few functions to work with maps under the pyspark.sql.functions module. Most of them are prefixed or suffixed with map, such as map_values() (which creates an array column out of the map values) or create_map() (which creates a map from the columns passed as a parameter, alternating between keys and values). The exercises at the end of this section and the end of the chapter provide more practice with the map column type.
+
+If the map maps (pun intended) to a Python dictionary, why did our JSON document not have any maps? Because maps keys and values need to be the same type, respectively—something JSON objects are not forced to do—we need a more flexible container to accommodate objects. It’s also much more useful to have the top-level name/value pairs as columns, like PySpark did with our shows data frame in listing 6.3. The next section will introduce the struct, which is the backbone of the data frame as we know it.
+
+Null elements in arrays and maps
+
+When defining an array or a map, you can also pass an optional parameter (containsNull for the array, valueContainsNull for the map) that will indicate PySpark if it can accept null elements. This is different than the nullable flag at column level: here, we can mention if any of the elements (or values) can be null.
+
+I don’t use non-nullable/no-null–element columns when working with data frames, but if your data model requires it, the option is available.
+
+# 6.3 The struct: Nesting columns within columns
+
+This section covers the struct as a column type, and also as the foundation of the data frame. We look at how we can reason about our data frame in terms of structs and how to navigate a data frame with nested structs.
+
+The struct is akin to a JSON object, in the sense that the key or name of each pair is a string and that each record can be of a different type. If we take a small subset of the columns in our data frame, like in listing 6.12, we see that the schedule column contains two fields:
+
+days, an array of strings
+
+time, a string
+
+```
+Listing 6.12 The schedule column with an array of strings and a string
+
+shows.select("schedule").printSchema()
+ 
+# root
+#  |-- schedule: struct (nullable = true)            ❶
+#  |    |-- days: array (nullable = true)
+#  |    |    |-- element: string (containsNull = true)
+#  |    |-- time: string (nullable = true)
+```
+❶ The schedule column is a struct. When looking at the nesting that rises from the column, we notice that the struct contains two named fields: days (an Array[string]) and time, a string.
+
+The struct is very different from the array and the map in that the number of fields and their names are known ahead of time. In our case, the schedule struct column is fixed: we know that each record of our data frame will contain that schedule struct (or a null value, if we want to be pedantic), and within that struct there will be an array of strings, days, and a string, time. The array and the map enforce the types of the values, but not their numbers or names. The struct allows for more versatility of types, as long as you name each field and provide the type ahead of time.
+
+Conceptually, I find that the easiest way to think about the struct column type is to imagine a small data frame within your column records. Using our example in listing 6.12, we can visualize that schedule is a data frame of two columns (days and time) trapped within the column. I illustrated the nested column analogy in figure 6.3.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/d0111ea7-b2bc-43b7-ac5c-8df14c765045)
+
+Figure 6.3 The shows.select("schedule") data frame. The column is a struct containing two named fields: days and time.
+
+Structs are able to be nested within one another. As an example, in listing 6.5 (or listing 6.13), the first field of our data frame, _embedded, is a struct that contains an array field, episodes. That array contains structs _links, which contains a struct self, which contains a string field, href. We are facing a pretty confusing nesting here! Don’t worry if this is still a little hard to envision; the next section will decipher the nesting dolls arrangement of structs by navigating our data frame.
+
+# 6.3.1 Navigating structs as if they were nested columns
+This section covers how to extract values from nested structs inside a data frame. PySpark provides the same convenience when working with nested columns as it would for regular columns. I cover the dot and bracket notations, and explain how PySpark treats nesting when using other complex structures. We work with the _embedded column by cleaning the useless nesting.
+
+Before going all hands on the keyboard, we’ll draft the structure of the _embedded column as a tree to get a sense of what we’re working with. In the following listing, I provide the output of the printSchema() command, which I drew in figure 6.4.
+
+```
+Listing 6.13 The _embedded column schema
+
+shows.select(F.col("_embedded")).printSchema()
+# root
+#  |-- _embedded: struct (nullable = true)                   ❶
+#  |    |-- episodes: array (nullable = true)                ❷
+#  |    |    |-- element: struct (containsNull = true)
+#  |    |    |    |-- _links: struct (nullable = true)       ❸
+#  |    |    |    |    |-- self: struct (nullable = true)
+#  |    |    |    |    |    |-- href: string (nullable = true)
+#  |    |    |    |-- airdate: string (nullable = true)
+#  |    |    |    |-- id: long (nullable = true)
+#  |    |    |    |-- image: struct (nullable = true)
+#  |    |    |    |    |-- medium: string (nullable = true)
+#  |    |    |    |    |-- original: string (nullable = true)
+#  |    |    |    |-- name: string (nullable = true)
+#  |    |    |    |-- number: long (nullable = true)
+#  |    |    |    |-- runtime: long (nullable = true)
+#  |    |    |    |-- season: long (nullable = true)
+#  |    |    |    |-- summary: string (nullable = true)
+#  |    |    |    |-- url: string (nullable = true)
+```
+❶ _embedded contains a single field: episodes.
+
+❷ episodes is an Array[Struct]. Yes, it’s possible.
+
+❸ Each episode is a record in the array, containing all the named fields in the struct. _links is a Struct[Struct[string]] field. PySpark will represent multiple levels of nesting without problems.
+
+For starters, we see in figure 6.4 that _embedded is a useless struct, as it contains only one field. In listing 6.14, I create a new top-level column called episodes that refers directly to the episodes field in the _embedded struct. For this, I use the col function and _embedded.episodes. This is consistent with the “struct as a mini data frame” mental model: you can refer to struct fields using the same notation as you would for a data frame.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/63638a5c-9d96-4097-972b-c5decf7e23f5)
+
+```
+Listing 6.14 Promoting the fields within a struct as columns
+
+shows_clean = shows.withColumn(
+ "episodes", F.col("_embedded.episodes")
+).drop("_embedded")
+ 
+shows_clean.printSchema()
+# root
+#  |-- _links: struct (nullable = true)
+#  |    |-- previousepisode: struct (nullable = true)
+#  |    |    |-- href: string (nullable = true)
+#  |    |-- self: struct (nullable = true)
+#  |    |    |-- href: string (nullable = true)
+#  |-- externals: struct (nullable = true)
+#  |    |-- imdb: string (nullable = true)
+#  [...]
+#  |-- episodes: array (nullable = true)            ❶
+#  |    |-- element: struct (containsNull = true)
+#  |    |    |-- _links: struct (nullable = true)
+#  |    |    |    |-- self: struct (nullable = true)
+#  |    |    |    |    |-- href: string (nullable = true)
+#  |    |    |-- airdate: string (nullable = true)
+#  |    |    |-- airstamp: string (nullable = true)
+#  |    |    |-- airtime: string (nullable = true)
+#  |    |    |-- id: long (nullable = true)
+#  |    |    |-- image: struct (nullable = true)
+#  |    |    |    |-- medium: string (nullable = true)
+#  |    |    |    |-- original: string (nullable = true)
+# [... rest of schema]
+```
+❶ We lost the _embedded column and promoted the field of the struct (episodes) as a top-level column.
+
+Finally, we look at drilling through structs nested in arrays. In section 6.2.1, I explained that we can refer to individual elements in the array using the index in brackets after the column reference. What about extracting the names of all the episodes, which are within the episodes array of structs?
+
+Turns out PySpark will allow you to drill within an array and will return the subset of the struct in array form. This is best explained by an example: in the next listing, I extract the episodes.name field from the shows_clean data frame. Since episodes is an array of struct and name is one of the string fields, episodes.name is an array of strings.
+
+```
+Listing 6.15 Selecting a field in an Array[Struct] to create a column
+
+episodes_name = shows_clean.select(F.col("episodes.name"))              ❶
+episodes_name.printSchema()
+ 
+# root
+#  |-- name: array (nullable = true)
+#  |    |-- element: string (containsNull = true)
+ 
+episodes_name.select(F.explode("name").alias("name")).show(3, False)   ❷
+# +-------------------------+
+# |name                     |
+# +-------------------------+
+# |Minimum Viable Product   |
+# |The Cap Table            |
+# |Articles of Incorporation|
+# +-------------------------+
+```
+
+❶ episodes.name refers to the name field of the elements of the episodes array.
+
+❷ Since we have multiple records in the episodes array, episodes.name extracts the name field or each record in the array and packs it into an array of names. I explode (chapter 2 and section 6.5) the array to show the names clearly.
+
+# 6.4 Building and using the data frame schema
+
+In this section, I cover how to define and use a schema with a PySpark data frame. We build the schema for our JSON object programmatically and review the out-of-the-box types PySpark offers. Being able to use Python structures (serialized as JSON) means that we can manipulate our schemas just like any other data structure; we can reuse our data manipulation tool kit for manipulating our data frame’s metadata. By doing this, we also address the potential slowdown from inferSchema, as we don’t need Spark to read the data twice (once to infer the schema, once to perform the read).
+
+In section 6.3, I explained that we can think of a struct column as a mini data frame nested in said column. The opposite also works: you can think of a data frame as having a single-struct entity, with the columns the top-level fields of the “root” struct. In any output of printSchema() (I reproduced the relevant part of listing 6.5 in the next listing for convenience), all the top-level fields are connected to the root.
+```
+Listing 6.16 A sample of the schema for the shows data frame
+
+shows.printSchema()
+# root                                    ❶
+#  |-- _links: struct (nullable = true)
+#  |    |-- previousepisode: struct (nullable = true)
+#  |    |    |-- href: string (nullable = true)
+#  |    |-- self: struct (nullable = true)
+#  |    |    |-- href: string (nullable = true)
+#  |-- externals: struct (nullable = true)
+#  |    |-- imdb: string (nullable = true)
+#  [... rest of schema]
+```
+❶ All the top-level fields (or columns) are children of a root implicit struct.
+
+# 6.4.1 Using Spark types as the base blocks of a schema
+In this section, I cover the column types in the context of a schema definition. I build the schema for our shows data frame from scratch and include some programmatic niceties of the PySpark schema-building capabilities. I introduce PySpark data types and how to assemble them in a struct to build your data frame schema. Decoupling the data from the schema means that you can control how your data is represented in your data frame and improve the robustness of your data transformation programs.
+
+The data types we use to build a schema are located in the pyspark.sql.types module. They are such a frequent import when working with data frames that, just like pyspark.sql.functions, they are usually imported with the qualified prefix T:
+
+`import pyspark.sql.types as T`
+
+`TIP` Just like with functions using a capital F, the common convention is to use a capital T when importing the types module. I strongly recommend doing the same.
+
+Within the pyspark.sql.types, there are two main kinds of objects. First, you have the types object, which represents a column of a certain type. All of those objects follow the ValueType() CamelCase syntax: for instance, a long column would be represented by a LongType() object. Most scalar types do not take any parameters (except for DecimalType(precision, scale), which is used for decimal numbers that have a precise amount of precision before and after the decimal point). Complex types, such as the array and the map, take the types of their values directly in the constructor. For example, an array of strings would be ArrayType(StringType()), and a map of strings mapping to longs would be MapType(StringType(), LongType()).
+
+Second, you have the field object; in other words, the StructField(). PySpark provides a StructType() that can contain an arbitrary number of named fields; programmatically, this translates to a StructType() taking a list of StructField(). Easy as that!
+
+A StructField() contains two mandatory as well as two optional parameters:
+
+The name of the field, passed as a string
+
+The dataType of the field, passed as a type object
+
+(Optional) A nullable flag, which determines if the field can be null or not (by default True)
+
+(Optional) A metadata dictionary that contains arbitrary information, which we will use for column metadata when working with ML pipelines (in chapter 13)
+
+`TIP` If you provide a reduced schema—meaning you only define a subset of the fields—PySpark will only read the defined fields. In the case where you only need a subset of columns/fields from a very wide data frame, you can save a significant amount of time!
+
+Putting all this together, the summary string field of the shows data frame would be encoded in a StructField like so:
+```
+T.StructField("summary", T.StringType())
+```
+In listing 6.17, I’ve done the _embedded schema of the shows data frame. While very verbose, we gain intimate knowledge of the data frame structure. Since the data frame schemas are regular Python classes, we can assign them to variables and build our schema from the bottom up. I usually split the structs containing more than three or so fields into their own variables, so my code doesn’t read like a whole block of structs interspersed with brackets.
+
+```
+Listing 6.17 The schema for the _embedded field
+
+import pyspark.sql.types as T
+ 
+episode_links_schema = T.StructType(
+    [
+        T.StructField(
+            "self", T.StructType([T.StructField("href", T.StringType())]) ❶
+        )
+    ]
+)  
+  
+episode_image_schema = T.StructType(
+    [
+        T.StructField("medium", T.StringType()),                          ❷
+        T.StructField("original", T.StringType()),                        ❷
+    ]
+)  
+  
+episode_schema = T.StructType(
+    [
+        T.StructField("_links", episode_links_schema),                    ❸
+        T.StructField("airdate", T.DateType()),
+        T.StructField("airstamp", T.TimestampType()),
+        T.StructField("airtime", T.StringType()),
+        T.StructField("id", T.StringType()),
+        T.StructField("image", episode_image_schema),                     ❸
+        T.StructField("name", T.StringType()),
+        T.StructField("number", T.LongType()),
+        T.StructField("runtime", T.LongType()),
+        T.StructField("season", T.LongType()),
+        T.StructField("summary", T.StringType()),
+        T.StructField("url", T.StringType()),
+    ]
+)
+ 
+embedded_schema = T.StructType(
+    [
+        T.StructField(
+            "_embedded",
+            T.StructType(
+                [
+                    T.StructField(
+                        "episodes", T.ArrayType(episode_schema)           ❹
+                    )
+                ]
+            ),
+        )
+    ]
+)
+```
+
+❶ The _links field contains a self struct that itself contains a single-string field: href.
+
+❷ The image field is a struct of two string fields: medium and original.
+
+❸ Since types are Python objects, we can pass them to variables and use them. Using episodes_links_schema and episode_image_schema makes our schema for an episode look much cleaner.
+
+❹ It’s obvious that our _embedded column contains a single field, episodes, which contains an array of episodes. Using good variable names helps with documenting our intent without relying on comments.
+
+# 6.4.2 Reading a JSON document with a strict schema in place
+This section covers how to read a JSON document while enforcing a precise schema. This proves extremely useful when you want to improve the robustness of your data pipeline; it’s better to know you’re missing a few columns at ingestion time than to get an error later in the program. I review some convenient practices when you expect the data to fit a certain mold and how you can rely on PySpark to keep you sane in the world of messy JSON documents. As a bonus, you can expect a better performance when reading data with a schema in place, because inferSchema requires a pre-read of the data just to infer the schema.
+
+If you analyzed listing 6.17 field by field, you might have realized that I defined airdate as a date and airstamp as a timestamp. In section 6.1.2, I listed the types available within a JSON document; missing from the lot were dates and timestamps. PySpark has your back on this: we can, fortunately, leverage some options of the JSON reader to read certain strings as dates and timestamps. To do so, you need to provide a full schema for your document; good thing we have one ready. In listing 6.18, I read my JSON document once more, but this time I provide an explicit schema. Note the change in type for airdate and airstamp. I also provide a new parameter, mode, which, when set to FAILFAST, will error if it encounters a malformed record versus the schema provided.
+
+Because we only pass a partial schema (embedded_schema), PySpark will only read the defined columns. In this case, we only cover the _embedded struct, so that’s the only part of the data frame we read. This is a convenient way to avoid reading everything before dropping unused columns.
+
+Since our dates and timestamp in our JSON document are ISO-8601 compliant (yyyy-MM-dd for the date and yyyy-MM-ddTHH:mm:ss.SSSXXX for the timestamp), we do not have to customize the JSON DataFrameReader to automatically parse our values. If you are facing a nonstandard date or timestamp format, you’ll need to pass the right format to dateFormat or timestampFormat. The format grammar is available on the official Spark documentation website (http://mng.bz/6ZgD).
+
+WARNING If you are using any version of Spark 2, the format followed for dateFormat and timestampFormat is different. Look for java.text.SimpleDateFormat if this is the case.
+```
+Listing 6.18 Reading a JSON document using an explicit partial schema
+
+shows_with_schema = spark.read.json(
+    "./data/shows/shows-silicon-valley.json",
+    schema=embedded_schema,                    ❶
+    mode="FAILFAST",                           ❷
+)
+```
+
+❶ We pass our schema to the schema parameter. Since our schema is a subset of the JSON document, we only read the defined fields.
+
+❷ By selecting the FAILFAST mode, our DataFrameReader will crash if our schema is incompatible.
+
+A successful read is promising, but since I want to verify my new date and timestamp field, I drill, explode, and show the fields in the following listing.
+```
+Listing 6.19 Validating the airdate and airstamp field reading
+
+for column in ["airdate", "airstamp"]:
+    shows.select(f"_embedded.episodes.{column}").select(
+        F.explode(column)
+    ).show(5)
+ 
+# +----------+
+# |       col|
+# +----------+
+# |2014-04-06|
+# |2014-04-13|
+# |2014-04-20|
+# |2014-04-27|
+# |2014-05-04|
+# +----------+
+# only showing top 5 rows
+ 
+# +-------------------+
+# |                col|
+# +-------------------+
+# |2014-04-06 22:00:00|
+# |2014-04-13 22:00:00|
+# |2014-04-20 22:00:00|
+# |2014-04-27 22:00:00|
+# |2014-05-04 22:00:00|
+# +-------------------+
+# only showing top 5 rows
+```
+Everything here looks fine. What happens if the schema does not match? PySpark, even in FAILFAST, will allow absent fields in the document if the schema allows for null values. In listing 6.20, I pollute my schema, changing two StringType() to LongType(). I did not include the whole stack trace, but the resulting error is a Py4JJavaError that hits it right on the head: our string value is not a bigint (or long). You won’t know which one, though: the stack trace only gives what it tried to parse and what is expected.
+
+NOTE Py4J (https://www.py4j.org/) is a library that enables Python programs to access Java objects in a JVM. In the case of PySpark, it helps bridge the gap between the pythonic veneer and the JVM-based Spark. In chapter 2, we saw—without naming it—Py4J in action, as most pyspark.sql.functions call a _jvm function. This makes the core Spark functions as fast in PySpark as they are in Spark, at the expense of some odd errors once in a while.
+
+```
+Listing 6.20 Witnessing a JSON document ingestion with incompatible schema
+
+from py4j.protocol import Py4JJavaError                   ❶
+ 
+episode_schema_BAD = T.StructType(
+    [
+        T.StructField("_links", episode_links_schema),
+        T.StructField("airdate", T.DateType()),
+        T.StructField("airstamp", T.TimestampType()),
+        T.StructField("airtime", T.StringType()),
+        T.StructField("id", T.StringType()),
+        T.StructField("image", episode_image_schema),
+        T.StructField("name", T.StringType()),
+        T.StructField("number", T.LongType()),
+        T.StructField("runtime", T.LongType()),
+        T.StructField("season", T.LongType()),
+        T.StructField("summary", T.LongType()),            ❷
+        T.StructField("url", T.LongType()),                ❷
+     ]
+)
+ 
+embedded_schema2 = T.StructType(
+    [
+        T.StructField(
+            "_embedded",
+            T.StructType(
+                [
+                    T.StructField(
+                        "episodes", T.ArrayType(episode_schema_BAD)
+                    )
+                ]
+            ),
+        )
+    ]
+)
+ 
+shows_with_schema_wrong = spark.read.json(
+    "./data/shows/shows-silicon-valley.json",
+    schema=embedded_schema2,
+    mode="FAILFAST",
+)
+ 
+try:
+    shows_with_schema_wrong.show()
+except Py4JJavaError:
+    pass
+ 
+# Huge Spark ERROR stacktrace, relevant bit:
+#
+# Caused by: java.lang.RuntimeException: Failed to parse a value for data type
+#   bigint (current token: VALUE_STRING).
+```
+❶ I import the relevant error (Py4JJavaError) to be able to catch and analyze it.
+
+❷ I change two fields from string to long in my schema.
+
+❸ PySpark will give the types of the two fields, but won’t give you which field is problematic. Time for some forensic analysis, I guess.
+
+This section was a short one but is still incredibly useful. We saw how to use the schema information to create a strict contract between the data provider and the data processor (us). In practice, this kind of strict schema assertion provides a better error message when the data is not what you expect, and allows you to avoid some errors (or a wrong result) down the line.
+
+FAILFAST: When do you want to get in trouble?
+
+It seems a little paranoid to use FAILFAST while setting a verbose schema all by hand. Unfortunately, data is messy and people can be sloppy, and when you rely on data to make decisions, garbage in, garbage out.
+
+In my professional career, I’ve encountered data integrity problems so often when reading data that I now firmly believe that you need to diagnose them as early as possible. FAILFAST mode is one example: by default, PySpark will set malformed records to null (the PERMISSIVE approach). When exploring, I consider this perfectly legitimate. But I’ve had enough sleepless nights after a business stakeholder called me at the last minute because the “results are weird” and thus try to minimize data drama at every opportunity.
+
+# 6.4.3 Going full circle: Specifying your schemas in JSON
+This section covers a different approach to the schema definition. Instead of using the verbose constructors seen in section 6.4, I explain how you can define your schema in JSON. We’re going full circle using JSON for both the data and its schema!
+
+The StructType object has a handy fromJson() method (note the camelCase used here, where the first letter of the first word is not capitalized, but the others are) that will read a JSON-formatted schema. As long as we know how to provide a proper JSON schema, we should be good to go.
+
+To understand the layout and content of a typical PySpark data frame, we use our shows_with_schema data frame and the schema attribute. Unlike printSchema(), which prints our schema to a standard output, schema returns an internal representation of the schema in terms of StructType. Fortunately, StructType comes with two methods for exporting its content into a JSON-esque format:
+
+json() will output a string containing the JSON-formatted schema.
+
+jsonValue() will return the schema as a dictionary.
+
+In listing 6.21, I pretty-print, with the help of the pprint module from the standard library, a subset of the schema of the shows_with_schema data frame. The result is very reasonable—each element is a JSON object containing four fields:
+
+`name`, a string representing the name of the field
+
+`type`, a string (for scalar values) containing the data type (e.g., "string" or "long") or an object (for complex values) representing the type of the field
+
+`nullable`, a Boolean indicating if the field can contain null values
+
+a `metadata` object containing the metadata of the field
+```
+Listing 6.21 Pretty-printing the schema
+
+import pprint          ❶
+ 
+pprint.pprint(
+    shows_with_schema.select(
+        F.explode("_embedded.episodes").alias("episode")
+    )
+    .select("episode.airtime")
+    .schema.jsonValue()
+)
+# {'fields': [{'metadata': {},
+#             'name': 'airtime',
+#             'nullable': True,
+#             'type': 'string'}],
+# 'type': 'struct'}
+```
+❶ pprint pretty prints Python data structures into the shell. It makes reading nested dictionaries much easier.
+
+These are the same parameters we pass to a StructField, as seen in section 6.4.1. The array, map, and struct have a slightly more involved type representation to go with their slightly more involved data representation. Rather than enumerating them out long, remember that you can have a refresher straight from your REPL by creating a dummy object and calling jsonValue() on it. I do it in the following listing.
+
+```
+Listing 6.22 Pretty-printing dummy complex types
+
+pprint.pprint(
+    T.StructField("array_example", T.ArrayType(T.StringType())).jsonValue()
+)
+ 
+# {'metadata': {},
+#  'name': 'array_example',
+#  'nullable': True,
+#  'type': {'containsNull': True, 'elementType': 'string', 'type': 'array'}}❶
+ 
+pprint.pprint(
+    T.StructField(
+        "map_example", T.MapType(T.StringType(), T.LongType())
+    ).jsonValue()
+)
+ 
+# {'metadata': {},
+#  'name': 'map_example',
+#  'nullable': True,
+#  'type': {'keyType': 'string',
+#           'type': 'map',
+#           'valueContainsNull': True,
+#           'valueType': 'long'}}                                           ❷
+ 
+pprint.pprint(
+    T.StructType(
+        [
+            T.StructField(
+                "map_example", T.MapType(T.StringType(), T.LongType())
+            ),
+            T.StructField("array_example", T.ArrayType(T.StringType())),
+        ]
+    ).jsonValue()
+)
+ 
+# {'fields': [{'metadata': {},                                              ❸
+#              'name': 'map_example',
+#              'nullable': True,
+#              'type': {'keyType': 'string',
+#                       'type': 'map',
+#                       'valueContainsNull': True,
+#                       'valueType': 'long'}},
+#             {'metadata': {},
+#              'name': 'array_example',
+#              'nullable': True,
+#              'type': {'containsNull': True,
+#                       'elementType': 'string',
+#                       'type': 'array'}}],
+#  'type': 'struct'}
+```
+
+❶ The array types contains three elements: containsNull, elementType, and type (which is always array).
+
+❷ The map contains similar elements as the array, but with keyType and valueType instead of elementType and valueContainsNull (a null key does not make sense).
+
+❸ The struct contains the same elements as the constructors: we have a type of struct and a fields element containing an JSON array of objects. Each StructField contains the same four fields as the constructor seen in section 6.3.
+
+Finally, we can close the loop by making sure that our JSON-schema is consistent with the one currently being used. For this, we’ll export the schema of shows_with_schema in a JSON string, load it as a JSON object, and then use StructType.fromJson() method to re-create the schema. As we can see in the next listing, the two schemas are equivalent.
+
+```
+Listing 6.23 Validating JSON schema is equal to data frame schema
+
+other_shows_schema = T.StructType.fromJson(
+    json.loads(shows_with_schema.schema.json())
+)
+ 
+print(other_shows_schema == shows_with_schema.schema)  # True
+```
+While this seems like a mere parlor trick, having the ability to serialize the schema of your data frame in a common format is a great help on your journey to consistent and predictable big data. You can version-control your schema and share your expectations with others. Furthermore, since JSON has a high affinity to Python dictionaries, you can use regular Python code to convert to and from any schema-definition language. (Chapter 7 contains information about DDL, a way to describe data schemas, which is what SQL databases use for defining schemas). PySpark gives you first-class access to define and access your data layout.
+
+This section covered how PySpark organizes data within a data frame and communicates this back to you through the schema. You learned how to create one programmatically, as well as how to import and export JSON-formatted schemas. The next section explains why complex data structures make sense when analyzing large data sets.
+
+# 6.5 Putting it all together: Reducing duplicate data with complex data types
+
+This section takes the hierarchical data model and presents the advantages in a big data setting. We look at how it helps reduce data duplication without relying on auxiliary data frames and how we can expand and contract the complex types.
+
+When looking at a new table (or a data frame), I always ask myself, what does each record contain? Another way to approach this question is by completing the following sentence: each record contains a single ____________.
+
+TIP Database folks sometimes call this a primary key. A primary key has specific implications in data base design. In my day-to-day life, I use the term exposure record: each record represents a single point of exposure, meaning that there is no overlap between records. This avoids domain-specific language (retail: customer or transaction; insurance: insured or policy year; banking: customer or balance at end of day). This is not an official term, but I find it very convenient, as it is portable across domains.
+
+In the case of the shows data frame, each record contains a single show. When looking at the fields, we can say “each show has a (insert name of the field).” For instance, each show has an ID, a name, a URL, and so on. What about episodes? A show definitely has more than one episode. By now, I am pretty sure you see how the hierarchical data model and the complex Spark column types solve this elegantly, but let’s review what the traditional “rows and columns” model has to say about this.
+
+In the two-dimensional world, if we wanted to have a table containing shows and episodes, we would proceed with one of two scenarios.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/b8a65302-3909-4ace-89ce-a820a20613a1)
+
+Figure 6.5 A hierarchical relationship can be expressed via a link/relation between two tables. Here, our show is linked to its episodes through a show_id key.
+
+First, we could have a shows table linked to an episodes table, using a star schema like the one encountered in chapters 4 and 5. Visually, figure 6.5 explains how we would separate the shows and episodes hierarchical relationship using two tables. In this case, our data is normalized, and while we have no duplication, getting all the information we want means joining tables according to keys.
+
+Second, we could have a joined table with scalar records (no nested structure). In our case, it becomes harder to make sense of our unit of exposure. If we look at the map and array types we’d need to “scalarize,” we have shows, episodes, genres, and days. An “each episode-show-genre-day-of-airing” unit of exposure table makes little sense. In figure 6.6, I show a table with only those four records as an example. We see duplication of the data for the show_id and the genre, which provides no additional information. Furthermore, having a joined table means that the relationship between the records is lost. Is the genre field the genre of the show or the episode?
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/7a21befe-81c1-44a8-94d2-6b1ef27bec28)
+
+Figure 6.6 A joined representation of our shows hierarchical model. We witness data duplication and a loss of relationship information.
+
+Since the beginning of the book, all of our data processing has tried to converge with having a single table. If we want to avoid data duplication, keep the relationship information, and have a single table, then we can—and should!—use the data frame’s complex column types. In our shows data frame
+
+Each record represents a show.
+
+A show has multiple episodes (array of structs column).
+
+Each episode has many fields (struct column within the array).
+
+Each show can have multiple genres (array of string column).
+
+Each show has a schedule (struct column).
+
+Each schedule belonging to a show can have multiple days (array) but a single time (string).
+
+Visually, it looks like figure 6.7. It’s clear that the episodes, the genre, and the schedule belong to the shows, yet we can have multiple episodes without duplicating any data.
+
+![image](https://github.com/kj2698/BigData_Bootcamp/assets/101991863/4986b774-2daa-4f19-b91c-8addd334bc13)
+
+An efficient, hierarchical data model is a thing of beauty, but sometimes we need to leave our ivory tower and work on the data. The next section will show how to expand and contract array columns to your liking to get your Goldilocks data frame at every stage.
+
+# 6.5.1 Getting to the “just right” data frame: Explode and collect
+This section covers how to use explode and collect operations to go from hierarchical to tabular and back. We cover the methods to break an array or a map into discrete records and how to get the records back into the original structure.
+
+In chapter 2, we already saw how to break an array of values into discrete records using the explode() function. We will now revisit the exploding operation by generalizing it to the map, looking at the behavior when your data frame has multiple columns, and seeing the different options PySpark provided.
+
+In listing 6.24, I take a small subset of columns and explode the _embedded.episodes one, producing a data frame containing one record per episode. This is the same use case that we saw in chapter 2, but with more columns present. PySpark duplicates the values in the columns that aren’t being exploded.
+
+```
+Listing 6.24 Exploding the _embedded.episodes into 53 distinct records
+
+episodes = shows.select(
+    "id", F.explode("_embedded.episodes").alias("episodes")
+)                                                              ❶
+episodes.show(5, truncate=70)
+ 
+# +---+----------------------------------------------------------------------+
+# | id|                                                              episodes|
+# +---+----------------------------------------------------------------------+
+# |143|{{{http:/ /api.tvmaze.com/episodes/10897}}, 2014-04-06, 2014-04-07T0...|
+# |143|{{{http:/ /api.tvmaze.com/episodes/10898}}, 2014-04-13, 2014-04-14T0...|
+# |143|{{{http:/ /api.tvmaze.com/episodes/10899}}, 2014-04-20, 2014-04-21T0...|
+# |143|{{{http:/ /api.tvmaze.com/episodes/10900}}, 2014-04-27, 2014-04-28T0...|
+# |143|{{{http:/ /api.tvmaze.com/episodes/10901}}, 2014-05-04, 2014-05-05T0...|
+# +---+----------------------------------------------------------------------+
+# only showing top 5 rows
+ 
+episodes.count()  # 53
+
+```
+❶ We explode an array column creating one record per element contained in the array.
+
+Explode can also happen with maps: the keys and values will be exploded in two different fields. For completeness, I’ll introduce the second type of explosion: posexplode(). The “pos” stands for position: it explodes the column and returns an additional column before the data that contains the position as a long. In listing 6.25, I create a simple map from two fields in the array, then posexplode() each record. Since a map column has a key and a value field, posexplode() on a map column will generate three columns; when aliasing the result, we need to pass three parameters to alias().
+
+```
+Listing 6.25 Exploding a map using posexplode()
+
+episode_name_id = shows.select(
+    F.map_from_arrays(                                         ❶
+        F.col("_embedded.episodes.id"), F.col("_embedded.episodes.name")
+    ).alias("name_id")
+)
+ 
+episode_name_id = episode_name_id.select(
+    F.posexplode("name_id").alias("position", "id", "name")    ❷
+)
+ 
+episode_name_id.show(5)
+ 
+# +--------+-----+--------------------+
+# |position|   id|                name|
+# +--------+-----+--------------------+
+# |       0|10897|Minimum Viable Pr...|
+# |       1|10898|       The Cap Table|
+# |       2|10899|Articles of Incor...|
+# |       3|10900|    Fiduciary Duties|
+# |       4|10901|      Signaling Risk|
+# +--------+-----+--------------------+
+# only showing top 5 rows
+```
+
+❶ We build a map from two arrays: first is the key; second is the values.
+
+❷ By position exploding, we create three columns: the position, the key, and the value of each element in our map have a record.
+
+Both explode() and posexplode() will skip any null values in the array or the map. If you want to have null as records, you can use explode_outer() or posexplode_outer() the same way.
+
+Now that we have exploded data frames, we’ll do the opposite by collecting our records into a complex column. For this, PySpark provides two aggregation functions: collect_list() and collect_set(). Both work the same way: they take a column as an argument and return an array column as a result. Where collect_list() returns one array element per column record, collect_set() will return one array element per distinct column record, just like a Python set.
+
+```
+Listing 6.26 Collecting our results back into an array
+
+collected = episodes.groupby("id").agg(
+    F.collect_list("episodes").alias("episodes")
+)
+ 
+collected.count()  # 1
+ 
+collected.printSchema()
+# |-- id: long (nullable = true)
+# |-- episodes: array (nullable = true)
+# |    |-- element: struct (containsNull = false)
+# |    |    |-- _links: struct (nullable = true)
+# |    |    |    |-- self: struct (nullable = true)
+# |    |    |    |    |-- href: string (nullable = true)
+# |    |    |-- airdate: string (nullable = true)
+# |    |    |-- airstamp: timestamp (nullable = true)
+# |    |    |-- airtime: string (nullable = true)
+# |    |    |-- id: long (nullable = true)
+# |    |    |-- image: struct (nullable = true)
+# |    |    |    |-- medium: string (nullable = true)
+# |    |    |    |-- original: string (nullable = true)
+# |    |    |-- name: string (nullable = true)
+# |    |    |-- number: long (nullable = true)
+# |    |    |-- runtime: long (nullable = true)
+# |    |    |-- season: long (nullable = true)
+# |    |    |-- summary: string (nullable = true)
+# |    |    |-- url: string (nullable = true)
+```
+
+Collecting an exploded map is not supported out of the box, but it’s easy knowing that you can pass multiple collect_list() functions as an argument to agg(). You can then use map_from_arrays(). Look at listings 6.25 and 6.26 for the building blocks.
+
+# 6.5.2 Building your own hierarchies: Struct as a function
+This section concludes the chapter by showing how you can create structs within a data frame. With this last tool in your toolbox, the structure of a data frame will have no secrets for you.
+
+To create a struct, we use the struct() function from the pyspark.sql.functions module. This function takes a number of columns as parameters (just like select()) and returns a struct column containing the columns passed as parameters as fields. Easy as pie!
+
+In the next listing, I create a new struct info containing a few columns from the shows data frame.
+
+```
+Listing 6.27 Creating a struct column using the struct function
+
+struct_ex = shows.select(
+    F.struct(                                          ❶
+         F.col("status"), F.col("weight"), F.lit(True).alias("has_watched")
+    ).alias("info")
+)
+struct_ex.show(1, False)
+# +-----------------+
+# |info             |
+# +-----------------+
+# |{Ended, 96, true}|                                  ❷
+# +-----------------+
+ 
+struct_ex.printSchema()
+# root
+#  |-- info: struct (nullable = false)                 ❸
+#  |    |-- status: string (nullable = true)
+#  |    |-- weight: long (nullable = true)
+#  |    |-- has_watched: boolean (nullable = false)
+```
+
+❶ The struct function can take one or more column objects (or column names). I passed a literal column to indicate that I’ve watched the show.
+
+❷ The info column is a struct and contains the three fields we specified.
+
+❸ The info column is a struct and contains the three fields we specified.
+
+`TIP` Just like with a top-level data frame, you can unpack (or select) all the columns from a struct using the star implicit column identifier, column.* .
+
+# Summary
+1. PySpark has a specialized JSON DataFrameReader for ingesting JSON documents within a data frame. The default parameters will read a well-formed JSONLines document, while setting multiLine=True will read a series of JSON documents, each in their own files.
+
+2. JSON data can be thought of as a Python dictionary. Nested (or hierarchical) elements are allowed through arrays (Python lists) and objects (Python dictionaries).
+
+3. In PySpark, hierarchical data models are represented through complex column types. The array represents lists of elements of the same type, the map represents multiple keys and values (akin to a Python dictionary), and the struct represents an object in the JSON sense.
+
+4. PySpark provides a programatic API to build data frame schemas on top of a JSON representation. Having an explicit schema reduces the risk of having data in an incompatible type, leading to further analysis errors in the data-manipulation stage.
+
+5. Complex types can be created and broken down via the data frame API with operations such as explosion, collection, and unpacking.
+
+
+
+
+
